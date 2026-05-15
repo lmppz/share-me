@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Super ID Share v4</title>
+  <title>Super Share</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1 class="animate-glow">🚀 Super ID Share</h1>
+    <h1 class="main-title">
+        <span class="rocket-icon">🚀</span> Super Share
+    </h1>
 
     <section class="card">
       <div class="input-group">
         <input type="text" id="usernameInput" placeholder="မိမိ ID (ဥပမာ- Luci)">
         <button id="connectBtn" class="btn-success">Connect</button>
       </div>
-      <div id="status" class="status-bar">အခြေအနေ: ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေဆဲ...</div>
+      <div id="status" class="status-bar">Status: ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေဆဲ...</div>
     </section>
 
     <section class="card">
       <div class="target-box">
-        <input type="text" id="targetIdInput" placeholder="ပို့မည့်သူ၏ ID">
+        <input type="text" id="targetIdInput" placeholder="Receiver ID">
         <div id="statusIndicator">
           Status: <span id="targetStatus" class="offline">Offline</span>
         </div>
