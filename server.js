@@ -8,37 +8,36 @@ Deno.serve({ port: 7860 }, async (req) => {
 
   socket.onmessage = (e) => {
     try {
-      if (typeof e.data === "string") {
-        const data = JSON.parse(e.data);
-        
-        // Register လုပ်ခြင်း
-        if (data.type === "register") {
-          currentId = data.id.trim().toLowerCase();
-          clients.set(currentId, socket);
-          socket.send(JSON.stringify({ type: "registered", id: data.id }));
-        }
+      const data = JSON.parse(e.data);
+      
+      // မိမိ ID ကို မှတ်ပုံတင်ခြင်း
+      if (data.type === "register") {
+        currentId = data.id.trim().toLowerCase();
+        clients.set(currentId, socket);
+        socket.send(JSON.stringify({ type: "registered", id: data.id }));
+      }
 
-        // Online ရှိမရှိ စစ်ဆေးခြင်း (ပြင်ဆင်ပြီး)
-        if (data.type === "check-status") {
-          const target = data.id.trim().toLowerCase();
-          const isOnline = clients.has(target);
-          socket.send(JSON.stringify({ 
-            type: "status-update", 
-            id: target, 
-            isOnline: isOnline 
-          }));
-        }
+      // တစ်ဖက်လူ ရှိမရှိ စစ်ဆေးခြင်း
+      if (data.type === "check-status") {
+        const target = data.id.trim().toLowerCase();
+        socket.send(JSON.stringify({ 
+          type: "status-update", 
+          id: target, 
+          isOnline: clients.has(target) 
+        }));
+      }
 
-        // စာသားနှင့် အချက်အလက်များ ပေးပို့ခြင်း
-        if (data.to) {
-          const target = data.to.trim().toLowerCase();
-          if (clients.has(target)) {
-            clients.get(target).send(JSON.stringify(data));
-          }
+      // စာသားနှင့် ဖိုင်များ ပေးပို့ခြင်း (Offline ဖြစ်နေရင် Error ပြန်ပို့မည်)
+      if (data.to) {
+        const target = data.to.trim().toLowerCase();
+        if (clients.has(target)) {
+          clients.get(target).send(JSON.stringify(data));
+        } else if (data.type !== "check-status" && data.type !== "feedback") {
+          socket.send(JSON.stringify({ type: "error", msg: "Target is Offline" }));
         }
       }
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Server Error:", err);
     }
   };
 
