@@ -1,58 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Super Share</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Super Share | Real-time P2P Sharing</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
-  <div class="container">
-    <h1 class="main-title"><span class="rocket-icon">🚀</span> Super Share</h1>
+<div class="app-container">
+    <div class="header">
+        <h1>📡 Super Share</h1>
+        <p>Real-time · Register · Online Status · Text & File</p>
+    </div>
 
-    <section class="card">
-      <div class="input-group">
-        <input type="text" id="usernameInput" placeholder="မိမိ ID (ဥပမာ- Luci)">
-        <button id="connectBtn" class="btn-success btn-animate">Connect</button>
-      </div>
-      <div id="status" class="status-bar">Status: ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေဆဲ...</div>
-    </section>
+    <div class="split-panel">
+        <!-- Sender Panel -->
+        <div class="panel">
+            <div class="panel-title">📤 Sender</div>
+            
+            <div class="input-group">
+                <label>🔗 RECEIVER REGISTERED ID</label>
+                <input type="text" id="targetIdInput" placeholder="e.g., luci, ppz, alex" autocomplete="off">
+                <div class="flex-btns">
+                    <button id="checkOnlineBtn">🔍 Check Status</button>
+                </div>
+                <div id="receiverOnlineStatus" class="status-msg">⚫ No receiver selected</div>
+            </div>
 
-    <section class="card">
-      <div class="receiver-section">
-        <input type="text" id="targetIdInput" placeholder="Receiver ID (ပို့မည့်သူ ID)">
-        <div id="statusIndicator" class="status-info">
-          Status: <span id="targetStatus" class="offline">Offline</span>
+            <div class="input-group">
+                <label>💬 TEXT MESSAGE</label>
+                <textarea id="senderTextMsg" rows="2" placeholder="Type your message..."></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>📎 ATTACH FILE</label>
+                <input type="file" id="fileInputSender" style="display: none;">
+                <div class="flex-btns">
+                    <button id="chooseFileBtn" class="secondary">📁 Choose File</button>
+                    <span id="fileNameDisplay" class="file-name">No file selected</span>
+                </div>
+            </div>
+
+            <div class="flex-btns">
+                <button id="sendTextBtn">✉️ Send Text</button>
+                <button id="sendFileBtn" class="secondary">📎 Send File</button>
+            </div>
+
+            <div class="message-area" id="senderLogArea">
+                <div class="chat-bubble info">📡 Sender activity will appear here...</div>
+            </div>
         </div>
-      </div>
-      
-      <textarea id="textInput" placeholder="စာသား သို့မဟုတ် Code များ ရိုက်ထည့်ပါ..." rows="5"></textarea>
-      
-      <div class="button-group">
-        <button id="sendText" class="btn-primary btn-animate">ပို့မည်</button>
-        <button id="clearInput" class="btn-secondary btn-animate">စာသားဖျက်</button>
-      </div>
-    </section>
 
-    <section class="card">
-      <div class="file-upload-wrapper">
-        <input type="file" id="fileInput" multiple>
-      </div>
-      <div id="progressContainer" style="display: none; margin-top: 20px;">
-        <div class="progress-info">
-          <span id="speedDisplay">Speed: 0 KB/s</span>
-          <span id="percentDisplay">0%</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div id="progressBar" class="progress-bar-fill"></div>
-        </div>
-      </div>
-      <button id="sendFile" class="btn-primary btn-animate" style="width: 100%; margin-top: 15px;">ဖိုင်/ပုံ ပို့မည်</button>
-    </section>
+        <!-- Receiver Panel -->
+        <div class="panel">
+            <div class="panel-title">
+                📥 Receiver
+                <span id="receiverSelfStatusIcon" class="status-dot offline"></span>
+            </div>
 
-    <div id="fileList"></div>
-    <div id="history"></div>
-  </div>
-  <script src="app.js"></script>
+            <div class="input-group">
+                <label>🏷️ YOUR REGISTERED ID</label>
+                <input type="text" id="registerNameInput" placeholder="e.g., luci, ppz, alex">
+                <div class="flex-btns">
+                    <button id="registerBtn">✅ Register / Go Online</button>
+                </div>
+                <div id="registeredIdDisplay" class="id-card">⚠️ Not registered</div>
+            </div>
+
+            <div class="status-badge" id="onlineStatusBadge">
+                <span id="statusDot" class="status-dot offline"></span>
+                <span id="statusText">Offline</span>
+                <span class="hint">(register to go online)</span>
+            </div>
+
+            <div class="input-group">
+                <label>📨 RECEIVED MESSAGES & FILES</label>
+                <div id="receiverInbox" class="message-area inbox">
+                    <div class="chat-bubble empty">✨ Waiting for incoming data...</div>
+                </div>
+            </div>
+
+            <div class="flex-btns">
+                <button id="copyAllReceiverTextBtn" class="success">📋 Copy All Text</button>
+                <button id="clearReceiverInboxBtn" class="warning">🗑️ Clear Inbox</button>
+            </div>
+            <p class="helper-text">🔹 Copy button copies only text messages from inbox</p>
+        </div>
+    </div>
+</div>
+<div id="toastMsg" class="toast">Copied!</div>
 </body>
 </html>
