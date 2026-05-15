@@ -13,18 +13,20 @@ Deno.serve(async (req) => {
 
   const { socket, response } = Deno.upgradeWebSocket(req);
   let currentId = null;
-  let targetForBinary = null; // Binary file ပို့မည့်သူကို မှတ်ရန်
+  let targetForBinary = null;
 
   socket.onmessage = (e) => {
     if (typeof e.data === "string") {
       const data = JSON.parse(e.data);
       
+      // User မှတ်ပုံတင်ခြင်း
       if (data.type === "register") {
         currentId = data.id.toLowerCase();
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
       }
       
+      // စာသားပို့ခြင်း
       if (data.type === "text") {
         const target = data.to.toLowerCase();
         if (clients.has(target)) {
@@ -32,7 +34,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // File မပို့ခင် ဘယ်သူ့ဆီ ပို့မှာလဲဆိုတာကို အရင် အကြောင်းကြားခြင်း
+      // ဖိုင်ပို့ရန် Target သတ်မှတ်ခြင်း
       if (data.type === "file_meta") {
         targetForBinary = data.to.toLowerCase();
         if (clients.has(targetForBinary)) {
@@ -40,7 +42,7 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      // Binary data (File) ကို သတ်မှတ်ထားတဲ့ target ဆီပဲ ပို့မည်
+      // Binary (File) ကို သတ်မှတ်ထားသော Target တစ်ဦးတည်းထံ ပို့ခြင်း
       if (targetForBinary && clients.has(targetForBinary)) {
         clients.get(targetForBinary).send(e.data);
       }
