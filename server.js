@@ -1,4 +1,3 @@
-// Cloudflare Workers WebSocket logic
 const clients = new Map();
 
 export default {
@@ -14,7 +13,6 @@ export default {
     server.accept();
     
     let currentId = null;
-    let targetForBinary = null;
 
     server.addEventListener('message', event => {
       const { data } = event;
@@ -22,7 +20,7 @@ export default {
       if (typeof data === 'string') {
         const msg = JSON.parse(data);
 
-        // ID မှတ်ပုံတင်ခြင်း
+        // ID ကို Map ထဲမှာ သိမ်းဆည်းခြင်း
         if (msg.type === 'register') {
           currentId = msg.id.toLowerCase();
           clients.set(currentId, server);
@@ -32,25 +30,23 @@ export default {
         // စာသားပို့ခြင်း
         if (msg.type === 'text') {
           const target = msg.to.toLowerCase();
-          if (clients.has(target) && target !== currentId) {
+          if (clients.has(target)) {
             clients.get(target).send(JSON.stringify(msg));
           }
         }
-
-        // Binary File မပို့ခင် Metadata ပို့ခြင်း
+        
+        // ဖိုင် metadata ပို့ခြင်း
         if (msg.type === 'file_meta') {
-          targetForBinary = msg.to.toLowerCase();
-          if (clients.has(targetForBinary) && targetForBinary !== currentId) {
-            clients.get(targetForBinary).send(JSON.stringify(msg));
+          const target = msg.to.toLowerCase();
+          if (clients.has(target)) {
+            clients.get(target).send(JSON.stringify(msg));
           }
         }
       } else {
-        // Binary Data (File) ကို Target ဆီ တိုက်ရိုက်ပို့ခြင်း
-        if (targetForBinary && clients.has(targetForBinary)) {
-          const targetWS = clients.get(targetForBinary);
-          // Sender ဆီ ပြန်မရောက်အောင် စစ်ဆေးခြင်း
-          if (targetWS !== server) {
-            targetWS.send(data);
+        // Binary (File) ကို အားလုံးဆီ forward လုပ်ခြင်း (သို့မဟုတ် receiver ဆီတိုက်ရိုက်)
+        for (const [id, s] of clients) {
+          if (s !== server) {
+            s.send(data);
           }
         }
       }
