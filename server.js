@@ -10,14 +10,14 @@ Deno.serve({ port: 7860 }, async (req) => {
     try {
       const data = JSON.parse(e.data);
       
-      // မိမိ ID ကို မှတ်ပုံတင်ခြင်း
+      // Register မိမိ ID ကို မှတ်ပုံတင်ခြင်း
       if (data.type === "register") {
         currentId = data.id.trim().toLowerCase();
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
       }
 
-      // တစ်ဖက်လူ ရှိမရှိ စစ်ဆေးခြင်း
+      // တစ်ဖက်လူ Online ရှိမရှိ စစ်ဆေးခြင်း
       if (data.type === "check-status") {
         const target = data.id.trim().toLowerCase();
         socket.send(JSON.stringify({ 
@@ -27,12 +27,13 @@ Deno.serve({ port: 7860 }, async (req) => {
         }));
       }
 
-      // စာသားနှင့် ဖိုင်များ ပေးပို့ခြင်း (Offline ဖြစ်နေရင် Error ပြန်ပို့မည်)
+      // စာသားနှင့် ဖိုင်များ ပေးပို့ခြင်း
       if (data.to) {
         const target = data.to.trim().toLowerCase();
         if (clients.has(target)) {
           clients.get(target).send(JSON.stringify(data));
         } else if (data.type !== "check-status" && data.type !== "feedback") {
+          // တစ်ဖက်လူ မရှိတော့လျှင် Sender ဆီ Error ပြန်ပို့မည်
           socket.send(JSON.stringify({ type: "error", msg: "Target is Offline" }));
         }
       }
