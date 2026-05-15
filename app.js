@@ -10,7 +10,6 @@ const historyDiv = document.getElementById("history");
 const connectBtn = document.getElementById("connectBtn");
 
 let myId = "";
-let statusCheckTimer;
 
 function initWS() {
     ws = new WebSocket(wsUrl);
@@ -32,20 +31,20 @@ function initWS() {
                 statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> ဖြင့် Online ဖြစ်နေသည်။`;
                 usernameInput.disabled = true;
                 connectBtn.textContent = "Connected";
-                startStatusAutoCheck(); // Register ပြီးမှ auto check စမည်
+                startStatusAutoCheck();
             }
             if (data.type === "status-update") {
                 targetStatus.textContent = data.isOnline ? "Online" : "Offline";
                 targetStatus.className = data.isOnline ? "online" : "offline";
             }
             if (data.type === "text" && data.from !== myId) {
+                // လက်ခံရရှိတဲ့စာကို history ထဲထည့်မယ်
                 addHistory(`From ${data.from}:`, data.content, data.time);
             }
         }
     };
 }
 
-// ၁ စက္ကန့်တစ်ခါ တစ်ဖက်လူရှိမရှိ အလိုအလျောက် စစ်ဆေးပေးခြင်း
 function startStatusAutoCheck() {
     setInterval(() => {
         const target = targetIdInput.value.trim();
@@ -73,11 +72,20 @@ document.getElementById("sendText").onclick = () => {
     }
 };
 
+// ဒီ function ကို အဓိက ပြင်ဆင်ထားပါတယ်
 function addHistory(title, content, time) {
     const div = document.createElement("div");
     div.className = "history-item";
-    const timeSpan = time ? `<span class="msg-time">🕒 ${time}</span>` : "";
-    div.innerHTML = `<div><strong>${title}</strong> ${timeSpan}</div><pre>${content}</pre>`;
+    
+    // Header (Title + Time)
+    const header = document.createElement("div");
+    header.style.marginBottom = "5px";
+    header.innerHTML = `<strong>${title}</strong> ${time ? `<span class="msg-time">🕒 ${time}</span>` : ""}`;
+    
+    // Content (Programming Code တွေ Design မပြောင်းအောင် textContent သုံးခြင်း)
+    const pre = document.createElement("pre");
+    pre.textContent = content; // <--- ဒါက HTML တွေကို design မပြောင်းအောင် လုပ်ပေးတာပါ
+    
     const copyBtn = document.createElement("button");
     copyBtn.className = "copy-btn";
     copyBtn.textContent = "Copy";
@@ -86,7 +94,10 @@ function addHistory(title, content, time) {
         copyBtn.textContent = "Copied!";
         setTimeout(() => copyBtn.textContent = "Copy", 2000);
     };
-    div.prepend(copyBtn);
+
+    div.appendChild(copyBtn);
+    div.appendChild(header);
+    div.appendChild(pre);
     historyDiv.prepend(div);
 }
 
