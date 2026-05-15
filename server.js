@@ -10,14 +10,21 @@ Deno.serve({ port: 7860 }, async (req) => {
     try {
       const data = JSON.parse(e.data);
       
-      // Register မိမိ ID ကို မှတ်ပုံတင်ခြင်း
+      // Register လုပ်ခြင်း
       if (data.type === "register") {
         currentId = data.id.trim().toLowerCase();
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
+
+        // အရေးကြီး - မိမိ Register လုပ်လိုက်တာနဲ့ တစ်ခြားလူတွေဆီ Online ဖြစ်ကြောင်း အကြောင်းကြားရန်
+        for (const [id, client] of clients) {
+            if (id !== currentId) {
+                client.send(JSON.stringify({ type: "status-update", id: currentId, isOnline: true }));
+            }
+        }
       }
 
-      // တစ်ဖက်လူ Online ရှိမရှိ စစ်ဆေးခြင်း
+      // Online Status စစ်ဆေးခြင်း
       if (data.type === "check-status") {
         const target = data.id.trim().toLowerCase();
         socket.send(JSON.stringify({ 
@@ -27,14 +34,13 @@ Deno.serve({ port: 7860 }, async (req) => {
         }));
       }
 
-      // စာသားနှင့် ဖိုင်များ ပေးပို့ခြင်း
+      // Relay Messages & Files
       if (data.to) {
         const target = data.to.trim().toLowerCase();
         if (clients.has(target)) {
           clients.get(target).send(JSON.stringify(data));
-        } else if (data.type !== "check-status" && data.type !== "feedback") {
-          // တစ်ဖက်လူ မရှိတော့လျှင် Sender ဆီ Error ပြန်ပို့မည်
-          socket.send(JSON.stringify({ type: "error", msg: "Target is Offline" }));
+        } else if (data.type !== "feedback") {
+          socket.send(JSON.stringify({ type: "error", msg: "တစ်ဖက်လူ Offline ဖြစ်သွားပါပြီ" }));
         }
       }
     } catch (err) {
@@ -43,7 +49,15 @@ Deno.serve({ port: 7860 }, async (req) => {
   };
 
   socket.onclose = () => {
-    if (currentId) clients.delete(currentId);
+    if (currentId) {
+        // Offline ဖြစ်သွားကြောင်း အခြားသူများကို အကြောင်းကြားရန်
+        for (const [id, client] of clients) {
+            if (id !== currentId) {
+                client.send(JSON.stringify({ type: "status-update", id: currentId, isOnline: false }));
+            }
+        }
+        clients.delete(currentId);
+    }
   };
 
   return response;
