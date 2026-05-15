@@ -1,61 +1,54 @@
 const clients = new Map();
 
-export default {
-  async fetch(request, env) {
-    const upgradeHeader = request.headers.get('Upgrade');
-    if (!upgradeHeader || upgradeHeader !== 'websocket') {
-      return new Response('Expected Upgrade: websocket', { status: 426 });
+Deno.serve(async (req) => {
+  if (req.headers.get("upgrade") !== "websocket") {
+    const url = new URL(req.url);
+    const path = url.pathname === "/" ? "/index.html" : url.pathname;
+    try {
+      return await fetch(new URL(`.${path}`, import.meta.url));
+    } catch {
+      return new Response("Not Found", { status: 404 });
     }
+  }
 
-    const pair = new WebSocketPair();
-    const [client, server] = [pair[0], pair[1]];
+  const { socket, response } = Deno.upgradeWebSocket(req);
+  let currentId = null;
 
-    server.accept();
-    
-    let currentId = null;
+  socket.onmessage = (e) => {
+    if (typeof e.data === "string") {
+      const data = JSON.parse(e.data);
+      
+      if (data.type === "register") {
+        currentId = data.id.toLowerCase();
+        clients.set(currentId, socket);
+        socket.send(JSON.stringify({ type: "registered", id: data.id }));
+      }
+      
+      if (data.type === "check_status") {
+        const target = data.targetId.toLowerCase();
+        socket.send(JSON.stringify({ 
+          type: "status_update", 
+          targetId: data.targetId, 
+          status: clients.has(target) ? "online" : "offline" 
+        }));
+      }
 
-    server.addEventListener('message', event => {
-      const { data } = event;
-
-      if (typeof data === 'string') {
-        const msg = JSON.parse(data);
-
-        // ID ကို Map ထဲမှာ သိမ်းဆည်းခြင်း
-        if (msg.type === 'register') {
-          currentId = msg.id.toLowerCase();
-          clients.set(currentId, server);
-          server.send(JSON.stringify({ type: 'registered', id: msg.id }));
-        }
-
-        // စာသားပို့ခြင်း
-        if (msg.type === 'text') {
-          const target = msg.to.toLowerCase();
-          if (clients.has(target)) {
-            clients.get(target).send(JSON.stringify(msg));
-          }
-        }
-        
-        // ဖိုင် metadata ပို့ခြင်း
-        if (msg.type === 'file_meta') {
-          const target = msg.to.toLowerCase();
-          if (clients.has(target)) {
-            clients.get(target).send(JSON.stringify(msg));
-          }
-        }
-      } else {
-        // Binary (File) ကို အားလုံးဆီ forward လုပ်ခြင်း (သို့မဟုတ် receiver ဆီတိုက်ရိုက်)
-        for (const [id, s] of clients) {
-          if (s !== server) {
-            s.send(data);
-          }
+      if (data.type === "text" || data.type === "file_meta") {
+        const target = data.to.toLowerCase();
+        if (clients.has(target)) {
+          clients.get(target).send(e.data);
         }
       }
-    });
+    } else {
+      // Binary Data (File) ကို လူတိုင်းဆီ forward လုပ်ခြင်း
+      for (const [id, client] of clients) {
+        if (client !== socket && client.readyState === 1) {
+          client.send(e.data);
+        }
+      }
+    }
+  };
 
-    server.addEventListener('close', () => {
-      if (currentId) clients.delete(currentId);
-    });
-
-    return new Response(null, { status: 101, webSocket: client });
-  }
-};
+  socket.onclose = () => { if (currentId) clients.delete(currentId); };
+  return response;
+});
