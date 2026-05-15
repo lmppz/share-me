@@ -31,10 +31,9 @@ function initWS() {
                 statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> ဖြင့် Online ဖြစ်နေသည်။`;
                 usernameInput.disabled = true;
                 connectBtn.textContent = "Connected";
-                startStatusAutoCheck();
             }
             if (data.type === "status-update") {
-                // တစ်ဖက်လူ Online ရှိမရှိကို အရောင်ဖြင့် ခွဲခြားပြသခြင်း
+                // Online/Offline ပြသမှု
                 if (data.isOnline) {
                     targetStatus.textContent = "Online";
                     targetStatus.className = "online";
@@ -50,18 +49,24 @@ function initWS() {
     };
 }
 
-// တစ်ဖက်လူကို စစ်ဆေးတဲ့နေရာမှာ error မရှိအောင် ၁ စက္ကန့်တစ်ခါ တောင်းဆိုခြင်း
-function startStatusAutoCheck() {
-    setInterval(() => {
-        const target = targetIdInput.value.trim();
-        if (target && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "check-status", id: target }));
-        } else if (!target) {
-            targetStatus.textContent = "Offline";
-            targetStatus.className = "offline";
-        }
-    }, 1000);
-}
+// Receiver ID ကွက်မှာ စာရိုက်လိုက်တာနဲ့ Server ဆီ ချက်ချင်းလှမ်းမေးခြင်း
+targetIdInput.addEventListener('input', () => {
+    const target = targetIdInput.value.trim();
+    if (target && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "check-status", id: target }));
+    } else {
+        targetStatus.textContent = "Offline";
+        targetStatus.className = "offline";
+    }
+});
+
+// ၁ စက္ကန့်တစ်ခါ အလိုအလျောက် စစ်ပေးခြင်း (တစ်ဖက်လူ Online တက်လာရင် တန်းသိအောင်)
+setInterval(() => {
+    const target = targetIdInput.value.trim();
+    if (target && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "check-status", id: target }));
+    }
+}, 2000);
 
 connectBtn.onclick = () => {
     const val = usernameInput.value.trim();
@@ -77,7 +82,6 @@ document.getElementById("sendText").onclick = () => {
         const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text, time: now }));
         textInput.value = "";
-        alert("စာသားပေးပို့ပြီးပါပြီ။");
     }
 };
 
@@ -85,16 +89,13 @@ function addHistory(title, content, time) {
     const div = document.createElement("div");
     div.className = "history-item";
     
-    // Header
     const header = document.createElement("div");
     header.className = "history-header";
     header.innerHTML = `<strong>${title}</strong>`;
     
-    // Content (Code design မပြောင်းစေရန် textContent သုံးသည်)
     const pre = document.createElement("pre");
     pre.textContent = content;
     
-    // Time (အောက်ခြေသို့ ပို့ထားသည်)
     const timeDiv = document.createElement("div");
     timeDiv.className = "msg-time";
     timeDiv.textContent = `🕒 ${time || ""}`;
@@ -116,6 +117,6 @@ function addHistory(title, content, time) {
 }
 
 document.getElementById("clearInput").onclick = () => { textInput.value = ""; };
-document.getElementById("clearHistory").onclick = () => { if(confirm("History အားလုံး ဖျက်မလား?")) historyDiv.innerHTML = ""; };
+document.getElementById("clearHistory").onclick = () => { historyDiv.innerHTML = ""; };
 
 initWS();
