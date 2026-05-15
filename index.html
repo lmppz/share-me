@@ -2,33 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Share Me</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Super ID Share v4</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1 class="animate-glow">🚀 Share Me</h1>
+    <h1 class="animate-glow">🚀 Super ID Share</h1>
+
     <section class="card">
-      <div style="display: flex; gap: 10px;">
-        <input type="text" id="usernameInput" placeholder="မိမိ ID အမည်ရိုက်ပါ">
+      <div class="input-group">
+        <input type="text" id="usernameInput" placeholder="မိမိ ID (ဥပမာ- Luci)">
         <button id="connectBtn" class="btn-success">Connect</button>
       </div>
-      <div id="status" style="margin-top: 10px; font-size: 14px;">ချိတ်ဆက်နေသည်...</div>
+      <div id="status" class="status-bar">အခြေအနေ: ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေဆဲ...</div>
     </section>
-    
+
     <section class="card">
-      <input type="text" id="targetIdInput" placeholder="ပို့မည့်သူ၏ ID ကိုရိုက်ပါ">
-      <textarea id="textInput" placeholder="စာသားရိုက်ထည့်ပါ..." rows="4"></textarea>
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-        <button id="sendText" class="btn-primary">စာသားပို့မည်</button>
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="file" id="fileInput" style="flex: 1;">
-          <button id="sendFile" class="btn-primary">ဖိုင်ပို့မည်</button>
+      <div class="target-box">
+        <input type="text" id="targetIdInput" placeholder="ပို့မည့်သူ၏ ID">
+        <div id="statusIndicator">
+          Status: <span id="targetStatus" class="offline">Offline</span>
         </div>
       </div>
+
+      <textarea id="textInput" placeholder="ဒီနေရာမှာ စာသား သို့မဟုတ် Code များ ရိုက်ထည့်ပါ..." rows="8"></textarea>
+      
+      <div class="button-group">
+        <button id="sendText" class="btn-primary">ပို့မည်</button>
+        <button id="clearInput" class="btn-secondary">စာသားဖျက်</button>
+        <button id="clearHistory" class="btn-danger">Clear All</button>
+      </div>
     </section>
-    
+
+    <section class="card">
+      <div class="file-upload-wrapper">
+        <input type="file" id="fileInput">
+      </div>
+      <button id="sendFile" class="btn-primary" style="width: 100%; margin-top: 10px;">ဖိုင်ပို့မည်</button>
+    </section>
+
     <div id="fileList"></div>
     <div id="history"></div>
   </div>
