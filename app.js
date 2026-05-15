@@ -32,9 +32,10 @@ function initWS() {
             const data = JSON.parse(e.data);
             if (data.type === "registered") {
                 myId = data.id.toLowerCase();
-                statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> ဖြင့် Online ဖြစ်နေသည်။`;
+                statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> Online`;
                 usernameInput.disabled = true;
                 connectBtn.textContent = "Connected";
+                startAutoStatusCheck();
             }
             if (data.type === "status-update") {
                 targetStatus.textContent = data.isOnline ? "Online" : "Offline";
@@ -47,21 +48,14 @@ function initWS() {
     };
 }
 
-// Receiver ID စစ်ဆေးခြင်း
-targetIdInput.addEventListener('input', () => {
-    const target = targetIdInput.value.trim();
-    if (target && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "check-status", id: target }));
-    }
-});
-
-// အလိုအလျောက် Online Status စစ်ပေးခြင်း
-setInterval(() => {
-    const target = targetIdInput.value.trim();
-    if (target && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "check-status", id: target }));
-    }
-}, 2000);
+function startAutoStatusCheck() {
+    setInterval(() => {
+        const target = targetIdInput.value.trim();
+        if (target && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "check-status", id: target }));
+        }
+    }, 2000);
+}
 
 connectBtn.onclick = () => {
     const val = usernameInput.value.trim();
@@ -77,91 +71,45 @@ document.getElementById("sendText").onclick = () => {
         const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text, time: now }));
         textInput.value = "";
-    }
-};
-
-// ဖိုင်ပို့ခြင်းနှင့် Speed Bar Logic
-document.getElementById("sendFile").onclick = async () => {
-    const fileInput = document.getElementById("fileInput");
-    const files = fileInput.files;
-    const target = targetIdInput.value.trim();
-
-    if (files.length === 0 || !target) return alert("ဖိုင်ရွေးရန်နှင့် Receiver ID ထည့်ရန် လိုအပ်ပါသည်။");
-
-    let isImage = Array.from(files).every(f => f.type.startsWith('image/'));
-    if (isImage && files.length > 10) return alert("ဓာတ်ပုံကို ၁၀ ပုံအထိသာ ပို့နိုင်သည်။");
-    if (!isImage && files.length > 4) return alert("ဖိုင်ကို ၄ ဖိုင်အထိသာ ပို့နိုင်သည်။");
-
-    const progContainer = document.getElementById("progressContainer");
-    const progBar = document.getElementById("progressBar");
-    const speedText = document.getElementById("speedDisplay");
-    const percentText = document.getElementById("percentDisplay");
-
-    progContainer.style.display = "block";
-
-    for (let file of files) {
-        if (file.size > 50 * 1024 * 1024) {
-            alert(`${file.name} က 50MB ကျော်နေပါသည်။`);
-            continue;
-        }
-
-        ws.send(JSON.stringify({ type: "file-meta", from: myId, to: target, fileName: file.name, fileType: file.type, fileSize: file.size }));
-
-        const reader = new FileReader();
-        let startTime = Date.now();
-
-        reader.onload = (e) => {
-            const rawData = e.target.result;
-            const chunkSize = 16384; 
-            let offset = 0;
-
-            const sendChunk = () => {
-                if (offset < rawData.byteLength) {
-                    const chunk = rawData.slice(offset, offset + chunkSize);
-                    ws.send(chunk);
-                    offset += chunkSize;
-
-                    const percent = Math.min(100, Math.round((offset / rawData.byteLength) * 100));
-                    const duration = (Date.now() - startTime) / 1000;
-                    const speed = (offset / 1024 / (duration || 1)).toFixed(2);
-
-                    progBar.style.width = percent + "%";
-                    percentText.textContent = percent + "%";
-                    speedText.textContent = `Speed: ${speed > 1024 ? (speed/1024).toFixed(2) + " MB/s" : speed + " KB/s"}`;
-
-                    setTimeout(sendChunk, 1);
-                } else {
-                    if (files.length === 1) setTimeout(() => progContainer.style.display = "none", 2000);
-                }
-            };
-            sendChunk();
-        };
-        reader.readAsArrayBuffer(file);
+        // ပို့လိုက်တဲ့စာကို ကိုယ့်ဘက်မှာလည်း ပြချင်ရင် addHistory ထပ်ခေါ်နိုင်သည်
     }
 };
 
 function addHistory(title, content, time) {
     const div = document.createElement("div");
     div.className = "history-item";
-    
+
+    const header = document.createElement("div");
+    header.className = "history-header";
+    header.textContent = title;
+
     const pre = document.createElement("pre");
     pre.textContent = content;
-    
+
     const timeDiv = document.createElement("div");
     timeDiv.className = "msg-time";
     timeDiv.textContent = `🕒 ${time || ""}`;
-    
+
     const copyBtn = document.createElement("button");
     copyBtn.className = "copy-btn";
     copyBtn.textContent = "Copy";
+    
+    // Copy Logic အမှန်
     copyBtn.onclick = () => {
-        navigator.clipboard.writeText(content);
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => copyBtn.textContent = "Copy", 2000);
+        navigator.clipboard.writeText(content).then(() => {
+            copyBtn.textContent = "Copied!";
+            copyBtn.style.background = "#22c55e";
+            setTimeout(() => {
+                copyBtn.textContent = "Copy";
+                copyBtn.style.background = "#38bdf8";
+            }, 2000);
+        }).catch(err => {
+            console.error("Copy failed", err);
+        });
     };
 
     div.appendChild(copyBtn);
-    div.innerHTML += `<strong>${title}</strong>`;
+    div.appendChild(header);
     div.appendChild(pre);
     div.appendChild(timeDiv);
     historyDiv.prepend(div);
