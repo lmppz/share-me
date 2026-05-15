@@ -1,80 +1,82 @@
-let ws;
-const wsUrl = "wss://lucimmo-share-me-server.hf.space"; 
-
-const usernameInput = document.getElementById("usernameInput");
-const targetIdInput = document.getElementById("targetIdInput");
-const textInput = document.getElementById("textInput");
-const statusDisplay = document.getElementById("status");
-const targetStatus = document.getElementById("targetStatus");
-const historyDiv = document.getElementById("history");
-
-let myId = "";
-
-function initWS() {
-    ws = new WebSocket(wsUrl);
-    ws.binaryType = "arraybuffer";
-
-    ws.onopen = () => { 
-        statusDisplay.textContent = "Server နှင့် ချိတ်ဆက်မိပါပြီ။"; 
-        statusDisplay.style.color = "#22c55e";
-    };
-
-    ws.onmessage = async (e) => {
-        if (typeof e.data === "string") {
-            const data = JSON.parse(e.data);
-            
-            if (data.type === "registered") {
-                myId = data.id.toLowerCase();
-                statusDisplay.innerHTML = `ID: <b style="color:#22c55e">${data.id}</b> (Online)`;
-            }
-
-            if (data.type === "status-update") {
-                targetStatus.textContent = data.isOnline ? "Online" : "Offline";
-                targetStatus.className = data.isOnline ? "online" : "offline";
-            }
-
-            if (data.type === "text") {
-                // တစ်ဖက်လူပို့တဲ့စာမှသာ History ထဲထည့်မည်
-                if (data.from !== myId) {
-                    addHistory(`From ${data.from}:`, data.content);
-                }
-            }
-            // ... file logic များ ...
-        }
-    };
+:root {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --primary: #38bdf8;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --text: #f8fafc;
+  --border: #334155;
+  --input-bg: #0b1120;
 }
 
-// Target ID ရိုက်နေစဉ် Online ရှိမရှိ စစ်ရန်
-targetIdInput.addEventListener('input', () => {
-    const target = targetIdInput.value.trim();
-    if (target && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: "check-status", id: target }));
-    }
-});
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-document.getElementById("sendText").onclick = () => {
-    const text = textInput.value;
-    const target = targetIdInput.value.trim();
-    if (text && target) {
-        ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text }));
-        // *** ဤနေရာတွင် addHistory ကို ဖြုတ်လိုက်ခြင်းဖြင့် မိမိပို့တာ မိမိပြန်မမြင်ရတော့ပါ ***
-        textInput.value = "";
-        alert("စာသားပေးပို့ပြီးပါပြီ။");
-    }
-};
-
-function addHistory(title, content) {
-    const div = document.createElement("div");
-    div.className = "history-item";
-    div.innerHTML = `<strong>${title}</strong><pre>${content}</pre>`;
-    
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "copy-btn";
-    copyBtn.textContent = "Copy";
-    copyBtn.onclick = () => navigator.clipboard.writeText(content);
-    
-    div.prepend(copyBtn);
-    historyDiv.prepend(div);
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  margin: 0; padding: 0;
+  display: flex; justify-content: center;
+  min-height: 100vh; width: 100%;
 }
 
-initWS();
+.container { width: 100%; max-width: 900px; padding: 15px; }
+
+/* Rocket Animation */
+.main-title { text-align: center; font-size: 2rem; color: var(--primary); margin: 15px 0; }
+.rocket-icon { display: inline-block; animation: floating 2s ease-in-out infinite; }
+@keyframes floating {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(10deg); }
+}
+
+.card {
+  background: var(--card); padding: 20px; border-radius: 16px;
+  border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  margin-bottom: 15px;
+}
+
+.input-group { display: flex; gap: 10px; margin-bottom: 10px; }
+
+input, textarea {
+  width: 100%; padding: 14px; background: var(--input-bg);
+  border: 1px solid var(--border); color: var(--text);
+  border-radius: 10px; font-size: 16px; outline: none;
+}
+
+textarea { min-height: 180px; font-family: 'Courier New', monospace; margin-top: 10px; }
+
+/* Online/Offline Animations */
+.online { 
+    color: var(--success); font-weight: bold; 
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+    animation: pulse-green 1.5s infinite; 
+}
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.offline { color: var(--danger); font-weight: bold; opacity: 0.8; }
+
+.button-group { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+button { padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+button:active { transform: scale(0.98); }
+
+.btn-primary { background: var(--primary); color: #0f172a; }
+.btn-success { background: var(--success); color: white; }
+.btn-secondary { background: #475569; color: white; }
+.btn-danger { background: var(--danger); color: white; }
+
+/* History & Copy Button */
+.history-item { 
+    background: var(--card); padding: 20px; border-radius: 12px; 
+    border-left: 5px solid var(--primary); position: relative; margin-top: 15px;
+}
+pre { 
+    background: #000; padding: 15px; border-radius: 8px; overflow-x: auto; 
+    white-space: pre-wrap; word-break: break-all; color: #38bdf8; margin-top: 35px;
+}
+.copy-btn { position: absolute; top: 15px; right: 15px; padding: 5px 12px; font-size: 12px; background: var(--primary); }
+
+@media (max-width: 600px) { .button-group { grid-template-columns: 1fr; } }
