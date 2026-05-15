@@ -8,23 +8,21 @@ const statusDisplay = document.getElementById("status");
 const targetStatus = document.getElementById("targetStatus");
 const historyDiv = document.getElementById("history");
 const connectBtn = document.getElementById("connectBtn");
+const sendTextBtn = document.getElementById("sendText");
+const sendFileBtn = document.getElementById("sendFile");
 
 let myId = "";
-let statusCheckInterval;
+let isTargetOnline = false;
+let incomingChunks = [];
+let incomingInfo = null;
 
 function initWS() {
     ws = new WebSocket(wsUrl);
-    ws.binaryType = "arraybuffer";
 
     ws.onopen = () => { 
         statusDisplay.textContent = "Status: Server နှင့် ချိတ်ဆက်မိပါပြီ။";
         statusDisplay.style.color = "#38bdf8";
-        connectBtn.disabled = false;
-        
-        // Connection ပြတ်သွားပြီး ပြန်ချိတ်မိပါက အလိုအလျောက် ပြန် Register လုပ်ရန်
-        if (myId) {
-            ws.send(JSON.stringify({ type: "register", id: myId }));
-        }
+        if (myId) ws.send(JSON.stringify({ type: "register", id: myId }));
     };
 
     ws.onclose = () => {
@@ -34,75 +32,73 @@ function initWS() {
     };
 
     ws.onmessage = async (e) => {
-        if (typeof e.data === "string") {
-            const data = JSON.parse(e.data);
+        const data = JSON.parse(e.data);
 
-            // ၁။ Register အောင်မြင်ခြင်း
-            if (data.type === "registered") {
-                myId = data.id.toLowerCase();
-                statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> Online`;
-                usernameInput.disabled = true;
-                connectBtn.textContent = "Connected";
-                startAutoStatusCheck();
-            }
-
-            // ၂။ တစ်ဖက်လူ Status ပြောင်းလဲမှုကို စစ်ဆေးခြင်း
-            if (data.type === "status-update") {
-                const currentTarget = targetIdInput.value.trim().toLowerCase();
-                if (data.id === currentTarget) {
-                    targetStatus.textContent = data.isOnline ? "Online" : "Offline";
-                    targetStatus.className = data.isOnline ? "online" : "offline";
-                }
-            }
-
-            // ၃။ စာသားလက်ခံရရှိခြင်း
-            if (data.type === "text") {
-                addHistory(`From ${data.from}:`, data.content, data.time);
-            }
-
-            // ၄။ ဖိုင်လက်ခံခြင်း Logic (Chunks)
-            handleFileMessages(data);
+        // ၁။ Register အောင်မြင်ခြင်း
+        if (data.type === "registered") {
+            myId = data.id.toLowerCase();
+            statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> Online`;
+            usernameInput.disabled = true;
+            connectBtn.textContent = "Connected";
         }
+
+        // ၂။ တစ်ဖက်လူ Status ကို Real-time စစ်ဆေးပြီး UI ပိတ်/ဖွင့်လုပ်ခြင်း
+        if (data.type === "status-update") {
+            const currentTarget = targetIdInput.value.trim().toLowerCase();
+            if (data.id === currentTarget) {
+                isTargetOnline = data.isOnline;
+                targetStatus.textContent = isTargetOnline ? "Online" : "Offline";
+                targetStatus.className = isTargetOnline ? "online" : "offline";
+                
+                // Offline ဖြစ်နေရင် ခလုတ်တွေနှိပ်လို့မရအောင် ပိတ်ထားမည်
+                sendTextBtn.disabled = !isTargetOnline;
+                sendFileBtn.disabled = !isTargetOnline;
+            }
+        }
+
+        // ၃။ Real-time Feedback လက်ခံခြင်း (Sender ဘက်မှ မြင်ရမည့်အချက်များ)
+        if (data.type === "feedback") {
+            addHistory("Tracking:", data.msg, new Date().toLocaleTimeString());
+        }
+
+        // ၄။ စာသားလက်ခံရရှိခြင်း
+        if (data.type === "text") {
+            addHistory(`From ${data.from}:`, data.content, data.time);
+        }
+
+        // ၅။ ဖိုင်လက်ခံခြင်း (Chunking စနစ်)
+        handleFileMessages(data);
     };
 }
 
-// Status ကို ၂ စက္ကန့်တစ်ခါ စစ်ပေးရန်
-function startAutoStatusCheck() {
-    if (statusCheckInterval) clearInterval(statusCheckInterval);
-    statusCheckInterval = setInterval(() => {
-        const target = targetIdInput.value.trim();
-        if (target && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "check-status", id: target }));
-        }
-    }, 2000);
-}
-
-// Receiver ID ရိုက်နေစဉ်မှာတင် ချက်ချင်း Status စစ်ရန်
+// Receiver ID ရိုက်နေစဉ် Status အမြဲစစ်နေရန်
 targetIdInput.addEventListener("input", () => {
     const target = targetIdInput.value.trim();
     if (!target) {
         targetStatus.textContent = "Offline";
         targetStatus.className = "offline";
+        sendTextBtn.disabled = true;
+        sendFileBtn.disabled = true;
         return;
     }
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "check-status", id: target }));
     }
 });
 
 connectBtn.onclick = () => {
     const id = usernameInput.value.trim();
-    if (!id) return alert("ID တစ်ခုခုအရင်ထည့်ပါ။");
+    if (!id) return alert("ID အရင်ထည့်ပါ။");
     myId = id;
     if (!ws || ws.readyState !== WebSocket.OPEN) initWS();
-    ws.send(JSON.stringify({ type: "register", id: id }));
+    else ws.send(JSON.stringify({ type: "register", id: id }));
 };
 
-// စာသားပို့ရန်
-document.getElementById("sendText").onclick = () => {
+// စာသားပို့ခြင်း
+sendTextBtn.onclick = () => {
     const target = targetIdInput.value.trim();
     const text = textInput.value.trim();
-    if (target && text && ws.readyState === WebSocket.OPEN) {
+    if (isTargetOnline && text) {
         const now = new Date().toLocaleTimeString();
         ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text, time: now }));
         addHistory(`To ${target}:`, text, now);
@@ -110,94 +106,77 @@ document.getElementById("sendText").onclick = () => {
     }
 };
 
-// --- ဖိုင်ပို့ခြင်းနှင့် လက်ခံခြင်း Logic (Chunking) ---
-let incomingFileInfo = null;
-let receivedChunks = [];
-
+// ဖိုင်လက်ခံခြင်း Logic
 async function handleFileMessages(data) {
     if (data.type === "file-start") {
-        incomingFileInfo = data;
-        receivedChunks = [];
-        addHistory("System:", `Incoming: ${data.fileName} (${(data.fileSize/1024/1024).toFixed(2)} MB)`);
+        incomingInfo = data;
+        incomingChunks = [];
+        addHistory("System:", `Incoming file: ${data.fileName}`);
+        // Sender ဆီကို ဖိုင်စလက်ခံနေပြီဖြစ်ကြောင်း Feedback ပို့မည်
+        ws.send(JSON.stringify({ type: "feedback", to: data.from, msg: `တစ်ဖက်လူဆီ ဖိုင်ရောက်ရှိနေပါပြီ...` }));
     }
     
-    if (data.type === "file-chunk" && incomingFileInfo) {
-        receivedChunks.push(data.chunkData);
-        if (receivedChunks.length === incomingFileInfo.totalChunks) {
-            const blob = b64toBlob(receivedChunks.join(""));
+    if (data.type === "file-chunk" && incomingInfo) {
+        incomingChunks.push(data.chunk);
+        if (incomingChunks.length === incomingInfo.total) {
+            // Sender ဆီကို Download ဆွဲနေပြီဖြစ်ကြောင်း Feedback ပို့မည်
+            ws.send(JSON.stringify({ type: "feedback", to: incomingInfo.from, msg: `တစ်ဖက်လူ ဖိုင်လက်ခံရရှိပြီး Download လုပ်နေပါပြီ။` }));
+            
+            const blob = new Blob(incomingChunks.map(c => Uint8Array.from(atob(c), c => c.charCodeAt(0))));
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = incomingFileInfo.fileName;
+            a.download = incomingInfo.fileName;
             a.click();
-            addHistory("Success:", `Received ${incomingFileInfo.fileName}`);
-            incomingFileInfo = null;
-            receivedChunks = [];
+            
+            ws.send(JSON.stringify({ type: "feedback", to: incomingInfo.from, msg: `✅ ဖိုင်ကို Download လုပ်ပြီးသွားပါပြီ။` }));
+            incomingInfo = null;
+            incomingChunks = [];
         }
     }
 }
 
-document.getElementById("sendFile").onclick = async () => {
+// 500MB Support ဖိုင်ပို့ခြင်း Logic
+sendFileBtn.onclick = async () => {
     const fileInput = document.getElementById("fileInput");
     const target = targetIdInput.value.trim();
-    if (!fileInput.files[0] || !target) return alert("ဖိုင်နှင့် Receiver ID ထည့်ပါ။");
-
     const file = fileInput.files[0];
-    const chunkSize = 1024 * 512; // 512KB chunks
-    const totalChunks = Math.ceil(file.size / chunkSize);
+
+    if (!file || !isTargetOnline) return alert("ဖိုင်ရွေးပါ (သို့) တစ်ဖက်လူ Offline ဖြစ်နေသည်။");
+
+    const CHUNK_SIZE = 1024 * 512; // 512KB chunks
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     
     document.getElementById("progressContainer").style.display = "block";
     
     ws.send(JSON.stringify({
-        type: "file-start", to: target, from: myId, 
-        fileName: file.name, fileSize: file.size, totalChunks: totalChunks
+        type: "file-start", from: myId, to: target, 
+        fileName: file.name, total: totalChunks 
     }));
 
     for (let i = 0; i < totalChunks; i++) {
-        const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
-        const reader = new FileReader();
-        reader.readAsDataURL(chunk);
-        await new Promise(r => reader.onload = r);
-        
-        ws.send(JSON.stringify({
-            type: "file-chunk", to: target, 
-            chunkData: reader.result.split(",")[1], chunkIndex: i
-        }));
+        const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        const base64 = await new Promise(r => {
+            const reader = new FileReader();
+            reader.onload = () => r(reader.result.split(',')[1]);
+            reader.readAsDataURL(chunk);
+        });
+
+        ws.send(JSON.stringify({ type: "file-chunk", to: target, chunk: base64 }));
 
         const percent = Math.round(((i + 1) / totalChunks) * 100);
         document.getElementById("progressBar").style.width = percent + "%";
         document.getElementById("percentDisplay").textContent = percent + "%";
     }
     
-    setTimeout(() => { document.getElementById("progressContainer").style.display = "none"; }, 2000);
+    addHistory("System:", `ဖိုင်ပို့ဆောင်မှု ပြီးမြောက်သည်။ လက်ခံသူကို စောင့်ဆိုင်းနေသည်...`);
+    setTimeout(() => { document.getElementById("progressContainer").style.display = "none"; }, 3000);
 };
-
-function b64toBlob(b64Data) {
-    const byteCharacters = atob(b64Data);
-    const byteArrays = [];
-    for (let i = 0; i < byteCharacters.length; i += 512) {
-        const slice = byteCharacters.slice(i, i + 512);
-        const byteNumbers = new Array(slice.length);
-        for (let j = 0; j < slice.length; j++) byteNumbers[j] = slice.charCodeAt(j);
-        byteArrays.push(new Uint8Array(byteNumbers));
-    }
-    return new Blob(byteArrays);
-}
 
 function addHistory(title, content, time) {
     const div = document.createElement("div");
     div.className = "history-item";
     div.innerHTML = `<div class="history-header">${title}</div><pre>${content}</pre><div class="msg-time">🕒 ${time || ""}</div>`;
-    
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "copy-btn";
-    copyBtn.textContent = "Copy";
-    copyBtn.onclick = () => navigator.clipboard.writeText(content).then(() => {
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => copyBtn.textContent = "Copy", 2000);
-    });
-    
-    div.appendChild(copyBtn);
     historyDiv.prepend(div);
 }
 
