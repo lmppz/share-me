@@ -1,7 +1,6 @@
 let ws;
-// အရေးကြီးသည်- Hugging Face Space နာမည်ကို အတိအကျ စစ်ဆေးပါ။ 
-// အကယ်၍ Space နာမည်က share-me ဆိုရင် အောက်ပါအတိုင်း ရေးပါ-
-const wsUrl = "wss://lucimmo-share-me.hf.space"; 
+// အရေးကြီးသည်- Hugging Face URL ကို wss:// ဖြင့် တိုက်ရိုက်သတ်မှတ်ပါ
+const wsUrl = "wss://lucimmo-share-me-server.hf.space"; 
 
 const usernameInput = document.getElementById("usernameInput");
 const targetIdInput = document.getElementById("targetIdInput");
@@ -11,28 +10,42 @@ const historyDiv = document.getElementById("history");
 const fileListDiv = document.getElementById("fileList");
 
 let myId = "";
+let heartbeatInterval;
 
 function initWS() {
+    // WebSocket စတင်ချိတ်ဆက်ခြင်း
     ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
 
     ws.onopen = () => { 
         statusDisplay.textContent = "Server နှင့် ချိတ်ဆက်မိပါပြီ။"; 
         statusDisplay.style.color = "#22c55e";
+        
+        // ချိတ်ဆက်မှုမပြတ်တောက်စေရန် Heartbeat စနစ်စတင်ခြင်း (၁၀ စက္ကန့်တစ်ခါ)
+        startHeartbeat();
     };
 
     ws.onclose = () => {
         statusDisplay.textContent = "ချိတ်ဆက်မှု ပြတ်တောက်သွားသည်။ ပြန်ချိတ်နေသည်...";
         statusDisplay.style.color = "#ef4444";
-        setTimeout(initWS, 3000); 
+        stopHeartbeat();
+        setTimeout(initWS, 3000); // ၃ စက္ကန့်အကြာတွင် ပြန်ချိတ်မည်
+    };
+
+    ws.onerror = (err) => {
+        console.error("WebSocket Error: ", err);
     };
 
     ws.onmessage = async (e) => {
         if (typeof e.data === "string") {
             const data = JSON.parse(e.data);
+            
+            // Server က ပို့တဲ့ Ping ကို ပြန်တုံ့ပြန်စရာမလိုပါ (သို့မဟုတ် log ထုတ်ကြည့်နိုင်သည်)
+            if (data.type === "pong") return;
+
             if (data.type === "registered") {
                 myId = data.id.toLowerCase();
-                statusDisplay.innerHTML = `ID: <b style="color:#22c55e">${data.id}</b> (Connected)`;
+                statusDisplay.innerHTML = `ID: <b style="color:#22c55e">${data.id}</b> (Online)`;
                 usernameInput.disabled = true;
                 document.getElementById("connectBtn").disabled = true;
             }
@@ -43,6 +56,7 @@ function initWS() {
                 window.incomingFileMeta = data;
             }
         } else {
+            // ဖိုင်လက်ခံရရှိခြင်း
             if (window.incomingFileMeta) {
                 const blob = new Blob([e.data], { type: window.incomingFileMeta.fileType });
                 const url = window.URL.createObjectURL(blob);
@@ -58,7 +72,20 @@ function initWS() {
     };
 }
 
-// ပျောက်နေသော addHistory function ကို ဤနေရာတွင် ထည့်သွင်းထားသည်
+// Heartbeat စနစ် (Server မအိပ်သွားအောင် ၁၀ စက္ကန့်တစ်ခါ အချက်ပြပို့ခြင်း)
+function startHeartbeat() {
+    heartbeatInterval = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+        }
+    }, 10000);
+}
+
+function stopHeartbeat() {
+    clearInterval(heartbeatInterval);
+}
+
+// History ပြသရန် Function
 function addHistory(title, content) {
     const div = document.createElement("div");
     div.className = "history-item";
@@ -66,6 +93,7 @@ function addHistory(title, content) {
     historyDiv.prepend(div);
 }
 
+// ခလုတ်များ၏ လုပ်ဆောင်ချက်များ
 document.getElementById("connectBtn").onclick = () => {
     const val = usernameInput.value.trim();
     if (val && ws.readyState === 1) {
@@ -101,4 +129,5 @@ document.getElementById("sendFile").onclick = () => {
     }
 };
 
+// စတင် Run ခြင်း
 initWS();
