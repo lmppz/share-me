@@ -1,4 +1,4 @@
-// Server side logic
+// Cloudflare Workers WebSocket logic
 const clients = new Map();
 
 export default {
@@ -8,27 +8,28 @@ export default {
       return new Response('Expected Upgrade: websocket', { status: 426 });
     }
 
-    const [client, server] = new Array(2).fill(null).map(() => new Object());
     const pair = new WebSocketPair();
-    const [clientWS, serverWS] = [pair[0], pair[1]];
+    const [client, server] = [pair[0], pair[1]];
 
-    serverWS.accept();
+    server.accept();
     
     let currentId = null;
     let targetForBinary = null;
 
-    serverWS.addEventListener('message', event => {
+    server.addEventListener('message', event => {
       const { data } = event;
 
       if (typeof data === 'string') {
         const msg = JSON.parse(data);
 
+        // ID မှတ်ပုံတင်ခြင်း
         if (msg.type === 'register') {
           currentId = msg.id.toLowerCase();
-          clients.set(currentId, serverWS);
-          serverWS.send(JSON.stringify({ type: 'registered', id: msg.id }));
+          clients.set(currentId, server);
+          server.send(JSON.stringify({ type: 'registered', id: msg.id }));
         }
 
+        // စာသားပို့ခြင်း
         if (msg.type === 'text') {
           const target = msg.to.toLowerCase();
           if (clients.has(target) && target !== currentId) {
@@ -36,6 +37,7 @@ export default {
           }
         }
 
+        // Binary File မပို့ခင် Metadata ပို့ခြင်း
         if (msg.type === 'file_meta') {
           targetForBinary = msg.to.toLowerCase();
           if (clients.has(targetForBinary) && targetForBinary !== currentId) {
@@ -43,20 +45,21 @@ export default {
           }
         }
       } else {
-        // Binary Data (300MB Check handled at client side)
+        // Binary Data (File) ကို Target ဆီ တိုက်ရိုက်ပို့ခြင်း
         if (targetForBinary && clients.has(targetForBinary)) {
           const targetWS = clients.get(targetForBinary);
-          if (targetWS !== serverWS) {
+          // Sender ဆီ ပြန်မရောက်အောင် စစ်ဆေးခြင်း
+          if (targetWS !== server) {
             targetWS.send(data);
           }
         }
       }
     });
 
-    serverWS.addEventListener('close', () => {
+    server.addEventListener('close', () => {
       if (currentId) clients.delete(currentId);
     });
 
-    return new Response(null, { status: 101, webSocket: clientWS });
+    return new Response(null, { status: 101, webSocket: client });
   }
 };
