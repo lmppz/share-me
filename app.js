@@ -1,5 +1,6 @@
 let ws;
-const wsUrl = "wss://lucimmo-share-me-server.hf.space"; // သင့် URL ကို ဤနေရာတွင် ထည့်သွင်းထားသည်
+// Hugging Face Space URL (wss:// သုံးရန် သတိပြုပါ)
+const wsUrl = "wss://lucimmo-share-me-server.hf.space"; 
 
 const usernameInput = document.getElementById("usernameInput");
 const targetIdInput = document.getElementById("targetIdInput");
@@ -14,7 +15,16 @@ function initWS() {
     ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
 
-    ws.onopen = () => { statusDisplay.textContent = "Server နှင့် ချိတ်ဆက်မိပါပြီ။"; };
+    ws.onopen = () => { 
+        statusDisplay.textContent = "Server နှင့် ချိတ်ဆက်မိပါပြီ။"; 
+        statusDisplay.style.color = "#22c55e";
+    };
+
+    ws.onclose = () => {
+        statusDisplay.textContent = "Server နှင့် ချိတ်ဆက်မှု ပြတ်တောက်သွားသည်။";
+        statusDisplay.style.color = "#ef4444";
+        setTimeout(initWS, 3000); // ပြန်ချိတ်ရန် ကြိုးစားခြင်း
+    };
 
     ws.onmessage = async (e) => {
         if (typeof e.data === "string") {
@@ -32,17 +42,17 @@ function initWS() {
                 window.incomingFileMeta = data;
             }
         } else {
-            // Binary data (File) လက်ခံရရှိခြင်း
+            // ဖိုင်လက်ခံရရှိခြင်း
             const blob = new Blob([e.data], { type: window.incomingFileMeta.fileType });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
             a.download = window.incomingFileMeta.fileName;
             a.className = "download-btn";
-            a.textContent = `⬇️ Download: ${window.incomingFileMeta.fileName}`;
+            a.innerHTML = `<span>⬇️ ${window.incomingFileMeta.fileName}</span>`;
             fileListDiv.prepend(a);
             
-            // Auto-cleanup memory
+            // Memory ရှင်းလင်းခြင်း
             setTimeout(() => window.URL.revokeObjectURL(url), 60000);
         }
     };
@@ -50,7 +60,9 @@ function initWS() {
 
 document.getElementById("connectBtn").onclick = () => {
     const val = usernameInput.value.trim();
-    if (val && ws.readyState === 1) ws.send(JSON.stringify({ type: "register", id: val }));
+    if (val && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: "register", id: val }));
+    }
 };
 
 document.getElementById("sendText").onclick = () => {
@@ -67,17 +79,24 @@ document.getElementById("sendFile").onclick = () => {
     const file = document.getElementById("fileInput").files[0];
     const target = targetIdInput.value.trim();
     if (file && target) {
-        ws.send(JSON.stringify({ type: "file-meta", from: myId, to: target, fileName: file.name, fileType: file.type }));
+        ws.send(JSON.stringify({ 
+            type: "file-meta", 
+            from: myId, 
+            to: target, 
+            fileName: file.name, 
+            fileType: file.type 
+        }));
         const reader = new FileReader();
         reader.onload = (e) => ws.send(e.target.result);
         reader.readAsArrayBuffer(file);
+        alert("ဖိုင်ပေးပို့နေပါသည်...");
     }
 };
 
 function addHistory(title, content) {
     const div = document.createElement("div");
     div.className = "history-item";
-    div.innerHTML = `<strong>${title}</strong><pre>${content}</pre>`;
+    div.innerHTML = `<strong>${title}</strong><pre style="white-space: pre-wrap; word-break: break-all;">${content}</pre>`;
     historyDiv.prepend(div);
 }
 
