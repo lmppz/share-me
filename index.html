@@ -1,59 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Super Share – Pure P2P Text & File</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super ID Share v3</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-<div class="app">
-    <!-- Left panel: contacts + registration -->
-    <div class="contacts-panel">
-        <h2>📡 Contacts</h2>
-        <div class="my-id-card">
-            <label>YOUR ID (register)</label>
-            <div class="my-id-row">
-                <input type="text" id="myIdInput" placeholder="e.g., luci" maxlength="20">
-                <button id="registerBtn">Go Online</button>
-            </div>
-            <div class="status-badge" id="selfStatusBadge">
-                <span class="dot" id="selfDot"></span>
-                <span id="selfStatusText">Offline</span>
-            </div>
-        </div>
-        <div class="contact-list" id="contactList">
-            <div class="placeholder-msg">Register to see contacts</div>
-        </div>
-        <div class="info-note">💡 Open another tab → register another ID → start sharing</div>
-    </div>
+  <div class="container">
+    <h1 class="animate-glow">🚀 Super ID Share</h1>
 
-    <!-- Right panel: chat with selected contact -->
-    <div class="chat-panel">
-        <div class="chat-header">
-            <h3 id="chatWithLabel">💬 Select a contact</h3>
-            <small id="targetStatusHint"></small>
-        </div>
-        <div class="messages-area" id="messagesContainer">
-            <div class="msg-bubble info">✨ Select a contact on the left to start chatting</div>
-        </div>
-        <div class="input-area">
-            <textarea id="messageInput" class="text-input" rows="2" placeholder="Type your message..."></textarea>
-            <div class="file-row">
-                <span class="fake-file-btn" id="chooseFileBtn">📎 Choose file</span>
-                <span id="fileNameSpan" class="file-name">No file</span>
-                <input type="file" id="fileInput" style="display:none;">
-            </div>
-            <div class="flex-btns">
-                <button id="sendTextBtn" class="send-btn">✉️ Send Text</button>
-                <button id="sendFileBtn" class="send-btn">📁 Send File</button>
-                <button id="copyReceivedTextBtn" class="send-btn copy-btn">📋 Copy only text (no timestamps)</button>
-                <button id="clearChatBtn" class="send-btn clear-btn">🗑️ Clear chat</button>
-            </div>
-        </div>
+    <section id="login-section" class="card">
+      <div class="input-group">
+        <input type="text" id="usernameInput" placeholder="မိမိ ID အမည်ရိုက်ပါ (ဥပမာ- Luci)">
+        <button id="connectBtn" class="btn-success">Connect လုပ်မည်</button>
+      </div>
+      <div id="status" class="status-bar">အခြေအနေ: ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေဆဲ...</div>
+    </section>
+
+    <section id="transfer-section" class="card">
+      <div class="target-box">
+        <input type="text" id="targetIdInput" placeholder="ပို့မည့်သူ၏ ID ကိုရိုက်ပါ">
+      </div>
+
+      <textarea id="textInput" placeholder="ဒီနေရာမှာ စာသား သို့မဟုတ် HTML Code များ ရိုက်ထည့်ပါ..."></textarea>
+      
+      <div class="button-group">
+        <button id="sendText" class="btn-primary">စာသားပို့မည်</button>
+        <button id="clearInput" class="btn-secondary">စာသားဖျက်</button>
+        <button id="clearHistory" class="btn-danger">History ဖျက်</button>
+      </div>
+    </section>
+
+    <section id="file-section" class="card">
+      <div class="file-upload-wrapper">
+        <input type="file" id="fileInput">
+        <p class="file-info">Max: 300MB (Binary Mode)</p>
+      </div>
+      <button id="sendFile" class="btn-primary" style="width: 100%; margin-top: 10px; background: var(--accent);">ဖိုင်ပို့မည်</button>
+    </section>
+
+    <div class="lists-container">
+      <h3>📜 ရရှိထားသည့် စာသားများ</h3>
+      <div id="history"></div>
+      
+      <h3 style="margin-top:25px;">📁 ရရှိထားသည့် ဖိုင်များ</h3>
+      <div id="fileList"></div>
     </div>
-</div>
-<div id="toastMsg" class="toast">Copied!</div>
-<script src="app.js"></script>
+  </div>
+  <script src="app.js"></script>
 </body>
 </html>
