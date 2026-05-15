@@ -1,6 +1,17 @@
-// ... (အပေါ်က Variable များအတိုင်းထားပါ)
+let ws;
+const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+const usernameInput = document.getElementById("usernameInput");
+const targetIdInput = document.getElementById("targetIdInput");
+const textInput = document.getElementById("textInput");
+const statusDisplay = document.getElementById("status");
+const historyDiv = document.getElementById("history");
+const fileListDiv = document.getElementById("fileList");
 const fileInput = document.getElementById("fileInput");
 const sendFileBtn = document.getElementById("sendFile");
+
+let myId = "";
 
 function initWS() {
     ws = new WebSocket(wsUrl);
@@ -21,11 +32,9 @@ function initWS() {
                 addHistory(`From ${data.from}:`, data.content);
             }
             if (data.type === "file_meta") {
-                // File metadata ရရင် နောက်လာမည့် binary ကို စောင့်ဖမ်းရန် ပြင်ဆင်ခြင်း
                 window.incomingFile = data;
             }
         } else {
-            // Binary data ရလာလျှင် Download link လုပ်ပေးခြင်း
             const blob = new Blob([e.data]);
             const url = URL.createObjectURL(blob);
             addFileLink(window.incomingFile.fileName, url, window.incomingFile.from);
@@ -33,18 +42,31 @@ function initWS() {
     };
 }
 
-// ဖိုင်ပို့သည့်အပိုင်း (Max 300MB ခန့်မှန်း)
+document.getElementById("connectBtn").onclick = () => {
+    const val = usernameInput.value.trim();
+    if (val && ws.readyState === 1) ws.send(JSON.stringify({ type: "register", id: val }));
+};
+
+document.getElementById("sendText").onclick = () => {
+    const text = textInput.value;
+    const target = targetIdInput.value.trim();
+    if (text && target) {
+        ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text }));
+        addHistory(`To ${target}:`, text);
+        textInput.value = "";
+    }
+};
+
 sendFileBtn.onclick = () => {
     const file = fileInput.files[0];
     const target = targetIdInput.value.trim();
     
     if (file && target) {
-        if (file.size > 300 * 1024 * 1024) {
+        if (file.size > 300 * 1024 * 1024) { // 300MB Check
             alert("ဖိုင်ဆိုဒ် 300MB ထက် မကျော်ရပါ။");
             return;
         }
 
-        // ၁။ ဖိုင်အချက်အလက်ကို အရင်ပို့
         ws.send(JSON.stringify({
             type: "file_meta",
             from: myId,
@@ -53,7 +75,6 @@ sendFileBtn.onclick = () => {
             fileSize: file.size
         }));
 
-        // ၂။ Binary data ကို ပို့
         const reader = new FileReader();
         reader.onload = () => {
             ws.send(reader.result);
@@ -65,6 +86,26 @@ sendFileBtn.onclick = () => {
     }
 };
 
+document.getElementById("clearInput").onclick = () => {
+    textInput.value = "";
+    textInput.focus();
+};
+
+function addHistory(title, content) {
+    const div = document.createElement("div");
+    div.className = "history-item";
+    const titleEl = document.createElement("strong");
+    titleEl.textContent = title;
+    const contentEl = document.createElement("pre");
+    contentEl.style.whiteSpace = "pre-wrap";
+    contentEl.style.wordBreak = "break-all";
+    contentEl.style.marginTop = "5px";
+    contentEl.textContent = content; 
+    div.appendChild(titleEl);
+    div.appendChild(contentEl);
+    historyDiv.prepend(div);
+}
+
 function addFileLink(name, url, from) {
     const a = document.createElement("a");
     a.href = url;
@@ -74,5 +115,9 @@ function addFileLink(name, url, from) {
     fileListDiv.prepend(a);
 }
 
-// status_update logic များကို ဖြုတ်လိုက်ပါပြီ
-// ... (ကျန်သည့် function များ အတူတူပင်ဖြစ်သည်)
+document.getElementById("clearHistory").onclick = () => {
+    historyDiv.innerHTML = "";
+    fileListDiv.innerHTML = "";
+};
+
+initWS();
