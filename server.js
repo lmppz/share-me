@@ -1,62 +1,64 @@
 const clients = new Map();
 
-Deno.serve(async (req) => {
-  if (req.headers.get("upgrade") !== "websocket") {
-    const url = new URL(req.url);
-    const path = url.pathname === "/" ? "/index.html" : url.pathname;
-    try {
-      return await fetch(new URL(`.${path}`, import.meta.url));
-    } catch {
-      return new Response("Not Found", { status: 404 });
+export default {
+  async fetch(request, env, ctx) {
+    // WebSocket ချိတ်ဆက်မှု တောင်းဆိုချက်ကို စစ်ဆေးခြင်း
+    if (request.headers.get("upgrade") === "websocket") {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+
+      server.accept();
+      let currentId = null;
+
+      server.addEventListener("message", (e) => {
+        if (typeof e.data === "string") {
+          const data = JSON.parse(e.data);
+
+          if (data.type === "register") {
+            currentId = data.id.toLowerCase();
+            clients.set(currentId, server);
+            server.send(JSON.stringify({ type: "registered", id: data.id }));
+          }
+
+          if (data.type === "check_status") {
+            const target = data.targetId.toLowerCase();
+            server.send(JSON.stringify({
+              type: "status_update",
+              targetId: data.targetId,
+              status: clients.has(target) ? "online" : "offline"
+            }));
+          }
+
+          if (data.type === "text" || data.type === "file_meta") {
+            const target = data.to.toLowerCase();
+            if (data.type === "file_meta") {
+              server.currentTargetId = target;
+            }
+            if (clients.has(target)) {
+              clients.get(target).send(e.data);
+            }
+          }
+        } else {
+          // Binary File ဒေတာများကို သတ်မှတ်ထားသည့် Target ID ဆီသို့သာ တိုက်ရိုက်ပို့ခြင်း
+          if (server.currentTargetId && clients.has(server.currentTargetId)) {
+            const targetSocket = clients.get(server.currentTargetId);
+            if (targetSocket.readyState === 1) {
+              targetSocket.send(e.data);
+            }
+          }
+        }
+      });
+
+      server.addEventListener("close", () => {
+        if (currentId) {
+          clients.delete(currentId);
+        }
+      });
+
+      return new Response(null, { status: 101, webSocket: client });
     }
+
+    // အခြား Request များကို Static Assets (HTML, CSS, JS) ဖိုင်များအဖြစ် Cloudflare မှ ပြသပေးခြင်း
+    return env.ASSETS.fetch(request);
   }
-
-  const { socket, response } = Deno.upgradeWebSocket(req);
-  let currentId = null;
-
-  socket.onmessage = (e) => {
-    if (typeof e.data === "string") {
-      const data = JSON.parse(e.data);
-      
-      if (data.type === "register") {
-        currentId = data.id.toLowerCase();
-        clients.set(currentId, socket);
-        socket.send(JSON.stringify({ type: "registered", id: data.id }));
-      }
-      
-      if (data.type === "check_status") {
-        const target = data.targetId.toLowerCase();
-        socket.send(JSON.stringify({ 
-          type: "status_update", 
-          targetId: data.targetId, 
-          status: clients.has(target) ? "online" : "offline" 
-        }));
-      }
-
-      if (data.type === "text" || data.type === "file_meta") {
-        const target = data.to.toLowerCase();
-        // ဖိုင်ပို့မည့်သူ၏ binary stream ကို လက်ခံမည့်သူသိစေရန် socket ထဲတွင် ခေတ္တမှတ်သားခြင်း
-        if (data.type === "file_meta") {
-          socket.currentTargetId = target;
-        }
-        if (clients.has(target)) {
-          clients.get(target).send(e.data);
-        }
-      }
-    } else {
-      // ပြင်ဆင်လိုက်သည့်နေရာ: ဖိုင်အချက်အလက်ကို လူတိုင်းဆီမပို့တော့ဘဲ သတ်မှတ်ထားသည့် Target ID ဆီသို့သာ တိုက်ရိုက်ပို့ခြင်း
-      if (socket.currentTargetId && clients.has(socket.currentTargetId)) {
-        const targetSocket = clients.get(socket.currentTargetId);
-        if (targetSocket.readyState === 1) {
-          targetSocket.send(e.data);
-        }
-      }
-    }
-  };
-
-  socket.onclose = () => { 
-    if (currentId) clients.delete(currentId); 
-  };
-  
-  return response;
-});
+};
