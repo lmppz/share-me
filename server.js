@@ -20,6 +20,7 @@ Deno.serve({ port: 7860 }, async (req) => {
         clients.get(data.to.toLowerCase()).send(e.data);
       }
     } else {
+      // Binary (File) Relay: ပို့တဲ့သူကလွဲပြီး ကျန်တဲ့သူတွေဆီ ပို့ပေးခြင်း
       for (const [id, client] of clients) {
         if (client !== socket && client.readyState === 1) {
           client.send(e.data);
