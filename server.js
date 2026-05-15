@@ -1,9 +1,7 @@
 const clients = new Map();
 
 Deno.serve({ port: 7860 }, async (req) => {
-  if (req.headers.get("upgrade") !== "websocket") {
-    return new Response("Share Me Server is Running", { status: 200 });
-  }
+  if (req.headers.get("upgrade") !== "websocket") return new Response("Running", { status: 200 });
 
   const { socket, response } = Deno.upgradeWebSocket(req);
   let currentId = null;
@@ -12,29 +10,29 @@ Deno.serve({ port: 7860 }, async (req) => {
     if (typeof e.data === "string") {
       const data = JSON.parse(e.data);
       
-      // ID မှတ်ပုံတင်ခြင်း
       if (data.type === "register") {
-        currentId = data.id.toLowerCase();
+        currentId = data.id.trim().toLowerCase(); // ID ကို lowercase ပြောင်းသိမ်းမည်
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
       }
 
-      // တစ်ဖက်လူ Online ရှိမရှိ စစ်ဆေးခြင်း
       if (data.type === "check-status") {
-        const isOnline = clients.has(data.id.toLowerCase());
+        const target = data.id.trim().toLowerCase();
+        const isOnline = clients.has(target);
         socket.send(JSON.stringify({ type: "status-update", isOnline }));
       }
 
-      // စာသားပို့ခြင်း
-      if (data.to && clients.has(data.to.toLowerCase())) {
-        clients.get(data.to.toLowerCase()).send(e.data);
+      if (data.to) {
+        const target = data.to.trim().toLowerCase();
+        if (clients.has(target)) {
+          clients.get(target).send(e.data);
+        }
       }
     } else {
-      // ဖိုင်ပို့ခြင်း (Binary)
+      // File ပို့သည့်အခါ အားလုံးဆီမရောက်စေဘဲ သတ်မှတ်ထားသူဆီပဲ ပို့မည်ဆိုလျှင် logic ထပ်ပြင်ရပါမည်
+      // အခုလောလောဆယ် Relay mode အတိုင်းပဲ ထားထားပါတယ်
       for (const [id, client] of clients) {
-        if (client !== socket && client.readyState === 1) {
-          client.send(e.data);
-        }
+        if (client !== socket && client.readyState === 1) client.send(e.data);
       }
     }
   };
