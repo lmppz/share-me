@@ -21,21 +21,29 @@
     <section class="card">
       <div class="target-box">
         <input type="text" id="targetIdInput" placeholder="Receiver ID">
-        <div id="statusIndicator">
-          Status: <span id="targetStatus" class="offline">Offline</span>
-        </div>
+        <div id="statusIndicator">Status: <span id="targetStatus" class="offline">Offline</span></div>
       </div>
-      <textarea id="textInput" placeholder="ဒီနေရာမှာ စာသား သို့မဟုတ် Code များ ရိုက်ထည့်ပါ..." rows="8"></textarea>
+      <textarea id="textInput" placeholder="စာသား သို့မဟုတ် Code များ ရိုက်ထည့်ပါ..." rows="5"></textarea>
       <div class="button-group">
         <button id="sendText" class="btn-primary btn-animate">ပို့မည်</button>
         <button id="clearInput" class="btn-secondary btn-animate">စာသားဖျက်</button>
-        <button id="clearHistory" class="btn-danger btn-animate">Clear All</button>
       </div>
     </section>
 
     <section class="card">
-      <div class="file-upload-wrapper"><input type="file" id="fileInput"></div>
-      <button id="sendFile" class="btn-primary btn-animate" style="width: 100%; margin-top: 10px;">ဖိုင်ပို့မည်</button>
+      <div class="file-upload-wrapper">
+        <input type="file" id="fileInput" multiple> </div>
+      <div id="progressContainer" style="display: none; margin-top: 15px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+          <span id="speedDisplay">Speed: 0 KB/s</span>
+          <span id="percentDisplay">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progressBar" class="progress-bar-fill"></div>
+        </div>
+      </div>
+      <button id="sendFile" class="btn-primary btn-animate" style="width: 100%; margin-top: 10px;">ဖိုင်/ပုံ ပို့မည်</button>
+      <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">* ဓာတ်ပုံ ၁၀ ပုံ သို့မဟုတ် ဖိုင် ၄ ဖိုင် (Max 50MB) ထိ ပို့နိုင်သည်</p>
     </section>
 
     <div id="fileList"></div>
