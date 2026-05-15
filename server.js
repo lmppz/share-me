@@ -16,12 +16,10 @@ Deno.serve({ port: 7860 }, async (req) => {
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
       }
-      // Target ဆီသို့ Message ပို့ခြင်း
       if (data.to && clients.has(data.to.toLowerCase())) {
         clients.get(data.to.toLowerCase()).send(e.data);
       }
     } else {
-      // Binary (File) ပို့ခြင်း
       for (const [id, client] of clients) {
         if (client !== socket && client.readyState === 1) {
           client.send(e.data);
@@ -30,9 +28,6 @@ Deno.serve({ port: 7860 }, async (req) => {
     }
   };
 
-  socket.onclose = () => {
-    if (currentId) clients.delete(currentId);
-  };
-
+  socket.onclose = () => { if (currentId) clients.delete(currentId); };
   return response;
 });
