@@ -26,7 +26,7 @@ function initWS() {
     };
 
     ws.onclose = () => {
-        statusDisplay.textContent = "Status: ပြတ်တောက်သွားသည်။ ပြန်ချိတ်နေသည်...";
+        statusDisplay.textContent = "Status: Connection ပြတ်သွားသည်။ ပြန်ချိတ်နေသည်...";
         statusDisplay.style.color = "#ef4444";
         setTimeout(initWS, 3000); 
     };
@@ -34,7 +34,6 @@ function initWS() {
     ws.onmessage = async (e) => {
         const data = JSON.parse(e.data);
 
-        // ၁။ Register အောင်မြင်ခြင်း
         if (data.type === "registered") {
             myId = data.id.toLowerCase();
             statusDisplay.innerHTML = `Status: <b style="color:#22c55e">${data.id}</b> Online`;
@@ -42,43 +41,44 @@ function initWS() {
             connectBtn.textContent = "Connected";
         }
 
-        // ၂။ တစ်ဖက်လူ Status ကို Real-time စစ်ဆေးပြီး UI ခလုတ်များ ပိတ်/ဖွင့်လုပ်ခြင်း
+        // တစ်ဖက်လူ Status Update ကို လက်ခံခြင်း
         if (data.type === "status-update") {
             const currentTarget = targetIdInput.value.trim().toLowerCase();
             if (data.id === currentTarget) {
                 isTargetOnline = data.isOnline;
-                targetStatus.textContent = isTargetOnline ? "Online" : "Offline";
-                targetStatus.className = isTargetOnline ? "online" : "offline";
-                
-                // တစ်ဖက်လူ Offline ဖြစ်နေလျှင် ပို့မည့်ခလုတ်များကို ပိတ်ထားမည်
-                sendTextBtn.disabled = !isTargetOnline;
-                sendFileBtn.disabled = !isTargetOnline;
+                updateStatusUI(isTargetOnline);
             }
         }
 
-        // ၃။ Real-time Feedback (တစ်ဖက်လူမှ Download ဆွဲနေမှု အခြေအနေကို သိရှိနိုင်ရန်)
+        // Real-time Tracking (Feedback)
         if (data.type === "feedback") {
-            addHistory("Status Tracking:", data.msg, new Date().toLocaleTimeString());
+            addHistory("System Tracking:", `<span style="color:#22c55e">${data.msg}</span>`, new Date().toLocaleTimeString());
         }
 
-        // ၄။ စာသားလက်ခံရရှိခြင်း
         if (data.type === "text") {
             addHistory(`From ${data.from}:`, data.content, data.time);
         }
 
-        // ၅။ ဖိုင်လက်ခံခြင်း (Large File Handling)
+        if (data.type === "error") {
+            addHistory("Alert:", data.msg, "");
+        }
+
         handleFileMessages(data);
     };
 }
 
-// Receiver ID ရိုက်နေစဉ် Status ကို အမြဲ စစ်ဆေးပေးနေရန်
+function updateStatusUI(online) {
+    targetStatus.textContent = online ? "Online" : "Offline";
+    targetStatus.className = online ? "online" : "offline";
+    sendTextBtn.disabled = !online;
+    sendFileBtn.disabled = !online;
+}
+
+// Receiver ID ရိုက်နေစဉ် Status ကို စစ်ဆေးရန်
 targetIdInput.addEventListener("input", () => {
     const target = targetIdInput.value.trim();
     if (!target) {
-        targetStatus.textContent = "Offline";
-        targetStatus.className = "offline";
-        sendTextBtn.disabled = true;
-        sendFileBtn.disabled = true;
+        updateStatusUI(false);
         return;
     }
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -94,7 +94,6 @@ connectBtn.onclick = () => {
     else ws.send(JSON.stringify({ type: "register", id: id }));
 };
 
-// စာသားပေးပို့ခြင်း
 sendTextBtn.onclick = () => {
     const target = targetIdInput.value.trim();
     const text = textInput.value.trim();
@@ -103,27 +102,22 @@ sendTextBtn.onclick = () => {
         ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text, time: now }));
         addHistory(`To ${target}:`, text, now);
         textInput.value = "";
-    } else {
-        alert("Receiver Offline ဖြစ်နေပါသည် (သို့) စာသားမရှိပါ။");
     }
 };
 
-// ဖိုင်လက်ခံခြင်းနှင့် သိမ်းဆည်းခြင်း Logic
 async function handleFileMessages(data) {
     if (data.type === "file-start") {
         incomingInfo = data;
         incomingChunks = [];
-        addHistory("System:", `ဖိုင်စတင်လက်ခံနေပြီ: ${data.fileName}`);
-        // Sender ဆီကို Feedback ပြန်ပို့မည်
+        addHistory("File System:", `ဖိုင်စလက်ခံနေပြီ: ${data.fileName}`);
         ws.send(JSON.stringify({ type: "feedback", to: data.from, msg: `တစ်ဖက်လူဆီ ဖိုင်စတင်ရောက်ရှိနေပါပြီ...` }));
     }
     
     if (data.type === "file-chunk" && incomingInfo) {
         incomingChunks.push(data.chunk);
         if (incomingChunks.length === incomingInfo.total) {
-            ws.send(JSON.stringify({ type: "feedback", to: incomingInfo.from, msg: `တစ်ဖက်လူမှ ဖိုင်ကို Download ဆွဲနေပါပြီ...` }));
+            ws.send(JSON.stringify({ type: "feedback", to: incomingInfo.from, msg: `ဖိုင်ရောက်ရှိသွားပါပြီ။ တစ်ဖက်လူ Download ပြုလုပ်နေသည်...` }));
             
-            // Chunk များအားလုံးကို ပြန်ပေါင်းပြီး Download ချပေးခြင်း
             const blob = new Blob(incomingChunks.map(c => Uint8Array.from(atob(c), char => char.charCodeAt(0))));
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -131,22 +125,21 @@ async function handleFileMessages(data) {
             a.download = incomingInfo.fileName;
             a.click();
             
-            ws.send(JSON.stringify({ type: "feedback", to: incomingInfo.from, msg: `✅ ဖိုင်ကို Download လုပ်ပြီးသွားပါပြီ။` }));
+            ws.send(JSON.stringify({ type: "feedback", to: incomingInfo.from, msg: `✅ Download ပြီးဆုံးပါပြီ။` }));
             incomingInfo = null;
             incomingChunks = [];
         }
     }
 }
 
-// 500MB Support ဖိုင်ပေးပို့ခြင်း Logic
 sendFileBtn.onclick = async () => {
     const fileInput = document.getElementById("fileInput");
     const target = targetIdInput.value.trim();
     const file = fileInput.files[0];
 
-    if (!file || !isTargetOnline) return alert("ဖိုင်ရွေးပါ (သို့) တစ်ဖက်လူ Offline ဖြစ်နေသည်။");
+    if (!file || !isTargetOnline) return alert("ဖိုင်ရွေးပါ (သို့) Receiver Offline ဖြစ်နေသည်။");
 
-    const CHUNK_SIZE = 1024 * 512; // 512KB per chunk
+    const CHUNK_SIZE = 1024 * 512; 
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     
     document.getElementById("progressContainer").style.display = "block";
@@ -166,13 +159,12 @@ sendFileBtn.onclick = async () => {
 
         ws.send(JSON.stringify({ type: "file-chunk", to: target, chunk: base64 }));
 
-        // Progress ပြခြင်း
         const percent = Math.round(((i + 1) / totalChunks) * 100);
         document.getElementById("progressBar").style.width = percent + "%";
         document.getElementById("percentDisplay").textContent = percent + "%";
     }
     
-    addHistory("System:", `ဖိုင်ပေးပို့မှု ပြီးဆုံးသည်။ တစ်ဖက်လူ Download လုပ်ရန် စောင့်ဆိုင်းနေသည်...`);
+    addHistory("System:", `ဖိုင်ပို့ဆောင်မှု ပြီးဆုံးသည်။ တစ်ဖက်လူ Download လုပ်ရန် စောင့်နေသည်...`);
     setTimeout(() => { document.getElementById("progressContainer").style.display = "none"; }, 3000);
 };
 
