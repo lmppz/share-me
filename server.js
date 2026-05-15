@@ -9,28 +9,18 @@ Deno.serve({ port: 7860 }, async (req) => {
   socket.onmessage = (e) => {
     if (typeof e.data === "string") {
       const data = JSON.parse(e.data);
-      
       if (data.type === "register") {
-        currentId = data.id.trim().toLowerCase(); // ID ကို lowercase ပြောင်းသိမ်းမည်
+        currentId = data.id.trim().toLowerCase();
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
       }
-
       if (data.type === "check-status") {
-        const target = data.id.trim().toLowerCase();
-        const isOnline = clients.has(target);
-        socket.send(JSON.stringify({ type: "status-update", isOnline }));
+        socket.send(JSON.stringify({ type: "status-update", isOnline: clients.has(data.id.trim().toLowerCase()) }));
       }
-
-      if (data.to) {
-        const target = data.to.trim().toLowerCase();
-        if (clients.has(target)) {
-          clients.get(target).send(e.data);
-        }
+      if (data.to && clients.has(data.to.trim().toLowerCase())) {
+        clients.get(data.to.trim().toLowerCase()).send(e.data);
       }
     } else {
-      // File ပို့သည့်အခါ အားလုံးဆီမရောက်စေဘဲ သတ်မှတ်ထားသူဆီပဲ ပို့မည်ဆိုလျှင် logic ထပ်ပြင်ရပါမည်
-      // အခုလောလောဆယ် Relay mode အတိုင်းပဲ ထားထားပါတယ်
       for (const [id, client] of clients) {
         if (client !== socket && client.readyState === 1) client.send(e.data);
       }
