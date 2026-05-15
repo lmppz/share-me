@@ -1,218 +1,267 @@
-const socket = io();
-
-// DOM Elements
-const targetIdInput = document.getElementById('targetIdInput');
-const checkOnlineBtn = document.getElementById('checkOnlineBtn');
-const receiverOnlineStatus = document.getElementById('receiverOnlineStatus');
-const senderTextMsg = document.getElementById('senderTextMsg');
-const fileInputSender = document.getElementById('fileInputSender');
+// ---------- DOM elements ----------
+const myIdInput = document.getElementById('myIdInput');
+const registerBtn = document.getElementById('registerBtn');
+const selfDot = document.getElementById('selfDot');
+const selfStatusText = document.getElementById('selfStatusText');
+const contactListDiv = document.getElementById('contactList');
+const chatWithLabel = document.getElementById('chatWithLabel');
+const targetStatusHint = document.getElementById('targetStatusHint');
+const messagesContainer = document.getElementById('messagesContainer');
+const messageInput = document.getElementById('messageInput');
 const chooseFileBtn = document.getElementById('chooseFileBtn');
-const fileNameDisplay = document.getElementById('fileNameDisplay');
+const fileInput = document.getElementById('fileInput');
+const fileNameSpan = document.getElementById('fileNameSpan');
 const sendTextBtn = document.getElementById('sendTextBtn');
 const sendFileBtn = document.getElementById('sendFileBtn');
-const senderLogArea = document.getElementById('senderLogArea');
+const copyReceivedTextBtn = document.getElementById('copyReceivedTextBtn');
+const clearChatBtn = document.getElementById('clearChatBtn');
+const toast = document.getElementById('toastMsg');
 
-const registerNameInput = document.getElementById('registerNameInput');
-const registerBtn = document.getElementById('registerBtn');
-const registeredIdDisplay = document.getElementById('registeredIdDisplay');
-const statusDot = document.getElementById('statusDot');
-const statusText = document.getElementById('statusText');
-const receiverInbox = document.getElementById('receiverInbox');
-const copyAllBtn = document.getElementById('copyAllReceiverTextBtn');
-const clearInboxBtn = document.getElementById('clearReceiverInboxBtn');
-const receiverSelfStatusIcon = document.getElementById('receiverSelfStatusIcon');
+// ---------- App state ----------
+let myId = null;                // current user's registered ID (lowercase)
+let online = false;
+let selectedContactId = null;   // currently selected contact ID
+let allUsers = new Map();       // key: id (string), value: { online: boolean }
+let receivedPlainTexts = [];    // store only message text (no sender, no timestamp) for copy button
 
-let currentReceiverId = null;
-let receivedMessages = []; // store text messages for copying
+// ---------- Cross‑tab communication ----------
+const channel = new BroadcastChannel('super_share_channel');
 
-// Helper: add log to sender
-function addSenderLog(msg, isError = false) {
-    const div = document.createElement('div');
-    div.className = 'chat-bubble';
-    div.style.borderLeftColor = isError ? '#ef4444' : '#3b82f6';
-    div.innerHTML = `📡 ${new Date().toLocaleTimeString()} - ${msg}`;
-    senderLogArea.appendChild(div);
-    senderLogArea.scrollTop = senderLogArea.scrollHeight;
-    if (senderLogArea.children.length > 12) senderLogArea.removeChild(senderLogArea.children[0]);
+function broadcast(type, payload) {
+    channel.postMessage({ type, from: myId, payload });
 }
 
-// Add to receiver inbox
-function addToInbox(from, text, isFile = false, fileName = null, fileDataURL = null) {
-    const div = document.createElement('div');
-    div.className = 'chat-bubble';
-    if (isFile && fileDataURL) {
-        div.innerHTML = `<strong>📎 ${from}</strong> sent file: <strong>${fileName}</strong><br><a href="${fileDataURL}" download="${fileName}">⬇️ Download ${fileName}</a>`;
-        receivedMessages.push({ type: 'file', from, fileName, timestamp: Date.now() });
-    } else {
-        div.innerHTML = `<strong>💬 ${from}:</strong> ${escapeHtml(text)}`;
-        receivedMessages.push({ type: 'text', from, content: text, timestamp: Date.now() });
+channel.onmessage = (e) => {
+    const { type, from, payload } = e.data;
+    if (from === myId) return; // ignore own messages
+
+    switch (type) {
+        case 'register':
+            allUsers.set(payload.id, { online: true });
+            renderContactList();
+            addSystemMessage(`🟢 ${payload.id} is now ONLINE`);
+            break;
+        case 'unregister':
+            if (allUsers.has(payload.id)) {
+                allUsers.get(payload.id).online = false;
+                renderContactList();
+                addSystemMessage(`🔴 ${payload.id} went offline`);
+                if (selectedContactId === payload.id) updateTargetStatusHint(false);
+            }
+            break;
+        case 'text':
+            // received text message from another tab
+            receivedPlainTexts.push(payload.text);  // store only pure text
+            displayMessage(payload.fromId, payload.text, false);
+            break;
+        case 'file':
+            displayFileMessage(payload.fromId, payload.fileName, payload.fileDataURL);
+            break;
+        case 'syncUsers':
+            // full sync of user list
+            for (let u of payload.usersList) {
+                allUsers.set(u.id, { online: u.online });
+            }
+            renderContactList();
+            break;
     }
-    receiverInbox.appendChild(div);
-    receiverInbox.scrollTop = receiverInbox.scrollHeight;
-    if (receiverInbox.children.length > 20) receiverInbox.removeChild(receiverInbox.children[0]);
+};
+
+// ---------- UI helpers ----------
+function addSystemMessage(msg) {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble info';
+    div.innerHTML = `ℹ️ ${msg}`;
+    messagesContainer.appendChild(div);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function displayMessage(senderId, text, isOwn = false) {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble';
+    if (isOwn) div.style.borderLeftColor = '#facc15';
+    div.innerHTML = `<strong>${isOwn ? 'You' : senderId}:</strong> ${escapeHtml(text)}`;
+    messagesContainer.appendChild(div);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function displayFileMessage(senderId, fileName, dataURL) {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble';
+    div.style.borderLeftColor = '#f97316';
+    div.innerHTML = `<strong>📎 ${senderId}:</strong> ${fileName}<br>
+                     <a href="${dataURL}" download="${fileName}">⬇️ Download file</a>`;
+    messagesContainer.appendChild(div);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
-}
-
-function updateSelfStatus() {
-    const isRegistered = currentReceiverId !== null;
-    if (isRegistered) {
-        statusDot.className = 'status-dot online';
-        statusText.innerText = 'Online';
-        receiverSelfStatusIcon.className = 'status-dot online';
-        registeredIdDisplay.innerHTML = `✅ Registered: <strong>${currentReceiverId}</strong> (visible to senders)`;
-    } else {
-        statusDot.className = 'status-dot offline';
-        statusText.innerText = 'Offline';
-        receiverSelfStatusIcon.className = 'status-dot offline';
-        registeredIdDisplay.innerHTML = `⚠️ Not registered — Senders cannot reach you.`;
-    }
-}
-
-// Register receiver
-function registerReceiver() {
-    const id = registerNameInput.value.trim();
-    if (!id) {
-        alert('Please enter an ID (e.g., luci, ppz)');
-        return;
-    }
-    socket.emit('register', id, (response) => {
-        if (response.success) {
-            if (currentReceiverId) {
-                socket.emit('unregister', currentReceiverId);
-            }
-            currentReceiverId = response.id;
-            updateSelfStatus();
-            addToInbox('System', `✅ Registered as "${currentReceiverId}" — You are ONLINE`, false);
-        } else {
-            alert('Registration failed: ' + response.reason);
-        }
+    return str.replace(/[&<>]/g, (m) => {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
     });
 }
 
-// Check online status
-function checkOnline() {
-    const targetId = targetIdInput.value.trim();
-    if (!targetId) {
-        receiverOnlineStatus.innerHTML = '⚠️ Enter receiver ID';
-        return;
-    }
-    socket.emit('check-online', targetId, (res) => {
-        if (res.online) {
-            receiverOnlineStatus.innerHTML = `✅ "${targetId}" is <span style="color:#4ade80;">ONLINE</span>`;
-        } else {
-            receiverOnlineStatus.innerHTML = `❌ "${targetId}" is <span style="color:#f87171;">OFFLINE</span> or not registered`;
-        }
-    });
+function showToastMessage(msg) {
+    toast.innerText = msg;
+    toast.style.opacity = '1';
+    setTimeout(() => toast.style.opacity = '0', 1500);
 }
 
-// Send text
+// ---------- Contact list rendering ----------
+function renderContactList() {
+    if (!myId) {
+        contactListDiv.innerHTML = '<div class="placeholder-msg">Register to see contacts</div>';
+        return;
+    }
+    const otherUsers = Array.from(allUsers.entries())
+        .filter(([id]) => id !== myId)
+        .map(([id, info]) => ({ id, online: info.online }));
+    
+    if (otherUsers.length === 0) {
+        contactListDiv.innerHTML = '<div class="placeholder-msg">No other users yet.<br>Open another tab and register.</div>';
+        return;
+    }
+    
+    let html = '';
+    for (let u of otherUsers) {
+        const isSelected = (selectedContactId === u.id);
+        html += `
+            <div class="contact-item ${isSelected ? 'selected' : ''}" data-id="${u.id}">
+                <span class="contact-name">${escapeHtml(u.id)}</span>
+                <span class="contact-status ${u.online ? 'online' : 'offline'}">${u.online ? '● Online' : '○ Offline'}</span>
+            </div>
+        `;
+    }
+    contactListDiv.innerHTML = html;
+    // attach click events
+    document.querySelectorAll('.contact-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const cid = el.getAttribute('data-id');
+            selectContact(cid);
+        });
+    });
+    // update target status hint if contact exists
+    if (selectedContactId && allUsers.has(selectedContactId)) {
+        updateTargetStatusHint(allUsers.get(selectedContactId).online);
+    } else if (selectedContactId) {
+        targetStatusHint.innerText = '⚠️ User offline or not registered';
+    }
+}
+
+function selectContact(contactId) {
+    selectedContactId = contactId;
+    renderContactList(); // re-render to highlight selected
+    const isOnline = allUsers.has(contactId) ? allUsers.get(contactId).online : false;
+    chatWithLabel.innerText = `💬 Chat with ${contactId}`;
+    updateTargetStatusHint(isOnline);
+}
+
+function updateTargetStatusHint(isOnline) {
+    if (isOnline) targetStatusHint.innerHTML = '✅ Online · ready to send';
+    else targetStatusHint.innerHTML = '❌ Offline (cannot send)';
+}
+
+// ---------- Registration ----------
+function registerMe() {
+    let newId = myIdInput.value.trim().toLowerCase();
+    if (!newId) {
+        alert('Please enter a valid ID (letters/numbers only)');
+        return;
+    }
+    // unregister previous if any
+    if (myId) {
+        broadcast('unregister', { id: myId });
+    }
+    myId = newId;
+    online = true;
+    selfDot.classList.add('online');
+    selfStatusText.innerText = 'Online';
+    allUsers.set(myId, { online: true });
+    
+    // broadcast registration and full list for sync
+    broadcast('register', { id: myId });
+    const userListForSync = Array.from(allUsers.entries()).map(([id, info]) => ({ id, online: info.online }));
+    broadcast('syncUsers', { usersList: userListForSync });
+    
+    renderContactList();
+    addSystemMessage(`✅ Registered as "${myId}" — You are now ONLINE`);
+    if (selectedContactId && !allUsers.has(selectedContactId)) selectedContactId = null;
+}
+
+// ---------- Send text ----------
 function sendText() {
-    const targetId = targetIdInput.value.trim();
-    const message = senderTextMsg.value.trim();
-    if (!targetId || !message) {
-        addSenderLog('❌ Please enter receiver ID and message', true);
-        return;
-    }
-    socket.emit('send-text', { targetId, message, senderId: 'Sender' }, (res) => {
-        if (res.success) {
-            addSenderLog(`✅ Text sent to "${targetId}": "${message.substring(0, 50)}"`);
-            senderTextMsg.value = '';
-        } else {
-            addSenderLog(`❌ Failed: ${res.reason}`, true);
-            checkOnline();
-        }
-    });
+    if (!myId) { alert('Register first (left panel)'); return; }
+    if (!selectedContactId) { alert('Select a contact from the left list'); return; }
+    const targetOnline = allUsers.has(selectedContactId) ? allUsers.get(selectedContactId).online : false;
+    if (!targetOnline) { alert('Selected user is offline. Cannot send.'); return; }
+    const text = messageInput.value.trim();
+    if (!text) return;
+    
+    broadcast('text', { fromId: myId, text: text });
+    displayMessage(myId, text, true);
+    messageInput.value = '';
 }
 
-// File handling
+// ---------- Send file ----------
 let selectedFile = null;
-chooseFileBtn.onclick = () => fileInputSender.click();
-fileInputSender.onchange = (e) => {
-    selectedFile = e.target.files[0];
-    fileNameDisplay.innerText = selectedFile ? selectedFile.name : 'No file selected';
+chooseFileBtn.onclick = () => fileInput.click();
+fileInput.onchange = (e) => {
+    if (fileInput.files.length) {
+        selectedFile = fileInput.files[0];
+        fileNameSpan.innerText = selectedFile.name;
+    } else {
+        selectedFile = null;
+        fileNameSpan.innerText = 'No file';
+    }
 };
 
 function sendFile() {
-    const targetId = targetIdInput.value.trim();
-    if (!targetId || !selectedFile) {
-        addSenderLog('❌ Enter receiver ID and select a file', true);
-        return;
-    }
+    if (!myId) { alert('Register first'); return; }
+    if (!selectedContactId) { alert('Select a contact'); return; }
+    const targetOnline = allUsers.has(selectedContactId) ? allUsers.get(selectedContactId).online : false;
+    if (!targetOnline) { alert('Target offline'); return; }
+    if (!selectedFile) { alert('Choose a file first'); return; }
+    
     const reader = new FileReader();
     reader.onload = (ev) => {
-        const fileData = ev.target.result; // base64
-        socket.emit('send-file', {
-            targetId,
-            fileName: selectedFile.name,
-            fileData: fileData,
-            fileType: selectedFile.type,
-            senderId: 'Sender'
-        }, (res) => {
-            if (res.success) {
-                addSenderLog(`📁 File "${selectedFile.name}" sent to ${targetId}`);
-                selectedFile = null;
-                fileInputSender.value = '';
-                fileNameDisplay.innerText = 'No file selected';
-            } else {
-                addSenderLog(`❌ File send failed: ${res.reason}`, true);
-            }
-        });
+        const dataURL = ev.target.result;
+        broadcast('file', { fromId: myId, fileName: selectedFile.name, fileDataURL: dataURL });
+        displayFileMessage(myId, selectedFile.name, dataURL);
+        selectedFile = null;
+        fileInput.value = '';
+        fileNameSpan.innerText = 'No file';
     };
     reader.readAsDataURL(selectedFile);
 }
 
-// Copy all text messages
-function copyAllTextMessages() {
-    const textOnly = receivedMessages.filter(m => m.type === 'text');
-    if (textOnly.length === 0) {
-        showToast('No text messages to copy');
+// ---------- Copy ONLY text (no timestamps, no sender) ----------
+function copyTextOnly() {
+    if (receivedPlainTexts.length === 0) {
+        showToastMessage('No text messages to copy');
         return;
     }
-    let output = '';
-    textOnly.forEach(m => {
-        output += `[${new Date(m.timestamp).toLocaleTimeString()}] ${m.from}: ${m.content}\n`;
-    });
-    navigator.clipboard.writeText(output).then(() => showToast(`📋 Copied ${textOnly.length} text message(s)`));
+    const plainText = receivedPlainTexts.join('\n');
+    navigator.clipboard.writeText(plainText).then(() => {
+        showToastMessage(`📋 Copied ${receivedPlainTexts.length} text message(s)`);
+    }).catch(() => alert('Copy failed'));
 }
 
-function clearInbox() {
-    receiverInbox.innerHTML = '<div class="chat-bubble empty">✨ Inbox cleared</div>';
-    receivedMessages = [];
+function clearChat() {
+    messagesContainer.innerHTML = '<div class="msg-bubble info">✨ Chat cleared</div>';
+    receivedPlainTexts = [];   // also clear the stored text for copy button
+    showToastMessage('Chat cleared');
 }
 
-function showToast(msg) {
-    const toast = document.getElementById('toastMsg');
-    toast.innerText = msg;
-    toast.style.opacity = '1';
-    setTimeout(() => toast.style.opacity = '0', 1800);
-}
+// ---------- Event listeners ----------
+registerBtn.addEventListener('click', registerMe);
+sendTextBtn.addEventListener('click', sendText);
+sendFileBtn.addEventListener('click', sendFile);
+copyReceivedTextBtn.addEventListener('click', copyTextOnly);
+clearChatBtn.addEventListener('click', clearChat);
 
-// Socket event listeners
-socket.on('receive-text', (data) => {
-    addToInbox(data.from, data.message, false);
-    addSenderLog(`📩 Message from ${data.from} delivered to receiver`);
-});
-
-socket.on('receive-file', (data) => {
-    addToInbox(data.from, null, true, data.fileName, data.fileData);
-    addSenderLog(`📩 File "${data.fileName}" from ${data.from} received`);
-});
-
-socket.on('status-change', (data) => {
-    const targetCheck = targetIdInput.value.trim().toLowerCase();
-    if (targetCheck === data.id) checkOnline();
-});
-
-// Button events
-checkOnlineBtn.onclick = checkOnline;
-sendTextBtn.onclick = sendText;
-sendFileBtn.onclick = sendFile;
-registerBtn.onclick = registerReceiver;
-copyAllBtn.onclick = copyAllTextMessages;
-clearInboxBtn.onclick = clearInbox;
-
-addSenderLog('✨ Connected to server. Register as receiver first, then sender can reach you.');
+// Initial placeholder
+addSystemMessage('👋 Register your ID (left panel). Open another tab, register another ID, then start sharing.');
