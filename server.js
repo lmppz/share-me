@@ -1,54 +1,62 @@
+// Server side logic
 const clients = new Map();
 
-Deno.serve(async (req) => {
-  if (req.headers.get("upgrade") !== "websocket") {
-    const url = new URL(req.url);
-    const path = url.pathname === "/" ? "/index.html" : url.pathname;
-    try {
-      return await fetch(new URL(`.${path}`, import.meta.url));
-    } catch {
-      return new Response("Not Found", { status: 404 });
+export default {
+  async fetch(request, env) {
+    const upgradeHeader = request.headers.get('Upgrade');
+    if (!upgradeHeader || upgradeHeader !== 'websocket') {
+      return new Response('Expected Upgrade: websocket', { status: 426 });
     }
+
+    const [client, server] = new Array(2).fill(null).map(() => new Object());
+    const pair = new WebSocketPair();
+    const [clientWS, serverWS] = [pair[0], pair[1]];
+
+    serverWS.accept();
+    
+    let currentId = null;
+    let targetForBinary = null;
+
+    serverWS.addEventListener('message', event => {
+      const { data } = event;
+
+      if (typeof data === 'string') {
+        const msg = JSON.parse(data);
+
+        if (msg.type === 'register') {
+          currentId = msg.id.toLowerCase();
+          clients.set(currentId, serverWS);
+          serverWS.send(JSON.stringify({ type: 'registered', id: msg.id }));
+        }
+
+        if (msg.type === 'text') {
+          const target = msg.to.toLowerCase();
+          if (clients.has(target) && target !== currentId) {
+            clients.get(target).send(JSON.stringify(msg));
+          }
+        }
+
+        if (msg.type === 'file_meta') {
+          targetForBinary = msg.to.toLowerCase();
+          if (clients.has(targetForBinary) && targetForBinary !== currentId) {
+            clients.get(targetForBinary).send(JSON.stringify(msg));
+          }
+        }
+      } else {
+        // Binary Data (300MB Check handled at client side)
+        if (targetForBinary && clients.has(targetForBinary)) {
+          const targetWS = clients.get(targetForBinary);
+          if (targetWS !== serverWS) {
+            targetWS.send(data);
+          }
+        }
+      }
+    });
+
+    serverWS.addEventListener('close', () => {
+      if (currentId) clients.delete(currentId);
+    });
+
+    return new Response(null, { status: 101, webSocket: clientWS });
   }
-
-  const { socket, response } = Deno.upgradeWebSocket(req);
-  let currentId = null;
-  let targetForBinary = null;
-
-  socket.onmessage = (e) => {
-    if (typeof e.data === "string") {
-      const data = JSON.parse(e.data);
-      
-      // User မှတ်ပုံတင်ခြင်း
-      if (data.type === "register") {
-        currentId = data.id.toLowerCase();
-        clients.set(currentId, socket);
-        socket.send(JSON.stringify({ type: "registered", id: data.id }));
-      }
-      
-      // စာသားပို့ခြင်း
-      if (data.type === "text") {
-        const target = data.to.toLowerCase();
-        if (clients.has(target)) {
-          clients.get(target).send(JSON.stringify(data));
-        }
-      }
-
-      // ဖိုင်ပို့ရန် Target သတ်မှတ်ခြင်း
-      if (data.type === "file_meta") {
-        targetForBinary = data.to.toLowerCase();
-        if (clients.has(targetForBinary)) {
-          clients.get(targetForBinary).send(JSON.stringify(data));
-        }
-      }
-    } else {
-      // Binary (File) ကို သတ်မှတ်ထားသော Target တစ်ဦးတည်းထံ ပို့ခြင်း
-      if (targetForBinary && clients.has(targetForBinary)) {
-        clients.get(targetForBinary).send(e.data);
-      }
-    }
-  };
-
-  socket.onclose = () => { if (currentId) clients.delete(currentId); };
-  return response;
-});
+};
