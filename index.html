@@ -3,38 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ID Direct Share</title>
+  <title>Super ID Share v3</title>
   <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
-    <h1 style="text-align:center; color:#38bdf8;">🚀 ID Direct Share</h1>
+    <h1 class="animate-glow">🚀 Super ID Share</h1>
 
-    <div class="card">
-      <div style="display:flex; gap:10px;">
-        <input type="text" id="usernameInput" placeholder="မိမိ ID အမည်ပေးပါ">
-        <button id="connectBtn" class="btn-success">Connect</button>
+    <section id="login-section" class="card">
+      <div class="input-group">
+        <input type="text" id="usernameInput" placeholder="မိမိ ID အမည်ရိုက်ပါ">
+        <button id="connectBtn" class="btn-success">Connect လုပ်မည်</button>
       </div>
-      <div id="status" style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေသည်...</div>
-    </div>
+      <div id="status" class="status-bar">အခြေအနေ: ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေဆဲ...</div>
+    </section>
 
-    <div class="card">
-      <input type="text" id="targetIdInput" placeholder="လက်ခံမည့်သူ၏ ID ရိုက်ပါ">
-      <textarea id="textInput" placeholder="စာသား သို့မဟုတ် Code များ ရိုက်ထည့်ပါ..."></textarea>
-      <div style="display:flex; gap:10px;">
-        <button id="sendText" class="btn-primary" style="flex:2;">စာပို့မည်</button>
-        <button id="clearHistory" class="btn-danger" style="flex:1;">Clear All</button>
+    <section id="transfer-section" class="card">
+      <div class="target-box">
+        <input type="text" id="targetIdInput" placeholder="ပို့မည့်သူ၏ ID ကိုရိုက်ပါ">
+        <div id="statusIndicator">Status: <span id="targetStatus">Unknown</span></div>
       </div>
-    </div>
+      <textarea id="textInput" placeholder="စာသားများ ရိုက်ထည့်ပါ..."></textarea>
+      <div class="button-group">
+        <button id="sendText" class="btn-primary">စာသားပို့မည်</button>
+        <button id="clearInput" class="btn-secondary">စာသားဖျက်</button>
+        <button id="clearHistory" class="btn-danger">History ဖျက်</button>
+      </div>
+    </section>
 
-    <div class="card">
-      <input type="file" id="fileInput">
-      <p style="font-size:0.7rem; color:#64748b; margin-top:5px;">Maximum: 300MB</p>
-      <button id="sendFile" class="btn-primary" style="width:100%; margin-top:10px; background:#818cf8;">ဖိုင်ပို့မည်</button>
-    </div>
+    <section id="file-section" class="card">
+      <div class="file-upload-wrapper">
+        <input type="file" id="fileInput">
+        <p class="file-info">Max: 300MB (Binary Mode)</p>
+      </div>
+      <button id="sendFile" class="btn-primary" style="width: 100%; margin-top: 10px; background: var(--accent);">ဖိုင်ပို့မည်</button>
+    </section>
 
-    <div id="history"></div>
-    <div id="fileList"></div>
+    <div class="lists-container">
+      <h3>📜 ရရှိထားသည့် စာသားများ</h3>
+      <div id="history"></div>
+      <h3 style="margin-top:25px;">📁 ရရှိထားသည့် ဖိုင်များ</h3>
+      <div id="fileList"></div>
+    </div>
   </div>
   <script src="app.js"></script>
 </body>
