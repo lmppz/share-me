@@ -1,5 +1,7 @@
 let ws;
-const wsUrl = "wss://lucimmo-share-me-server.hf.space"; 
+// အရေးကြီးသည်- Hugging Face Space နာမည်ကို အတိအကျ စစ်ဆေးပါ။ 
+// အကယ်၍ Space နာမည်က share-me ဆိုရင် အောက်ပါအတိုင်း ရေးပါ-
+const wsUrl = "wss://lucimmo-share-me.hf.space"; 
 
 const usernameInput = document.getElementById("usernameInput");
 const targetIdInput = document.getElementById("targetIdInput");
@@ -41,24 +43,26 @@ function initWS() {
                 window.incomingFileMeta = data;
             }
         } else {
-            const blob = new Blob([e.data], { type: window.incomingFileMeta.fileType });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = window.incomingFileMeta.fileName;
-            a.className = "download-btn";
-            a.innerHTML = `<span>⬇️ Download: ${window.incomingFileMeta.fileName}</span>`;
-            fileListDiv.prepend(a);
-            setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+            if (window.incomingFileMeta) {
+                const blob = new Blob([e.data], { type: window.incomingFileMeta.fileType });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = window.incomingFileMeta.fileName;
+                a.className = "download-btn";
+                a.innerHTML = `<span>⬇️ Download: ${window.incomingFileMeta.fileName}</span>`;
+                fileListDiv.prepend(a);
+                setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+            }
         }
     };
 }
 
-// သမိုင်းကြောင်းပြသရန် function (ဒါလေး ကျန်ခဲ့လို့ အလုပ်မလုပ်တာပါ)
+// ပျောက်နေသော addHistory function ကို ဤနေရာတွင် ထည့်သွင်းထားသည်
 function addHistory(title, content) {
     const div = document.createElement("div");
     div.className = "history-item";
-    div.innerHTML = `<strong>${title}</strong><pre style="white-space: pre-wrap; word-break: break-all; background: #0f172a; padding: 10px; border-radius: 5px; margin-top: 5px;">${content}</pre>`;
+    div.innerHTML = `<strong>${title}</strong><pre style="white-space: pre-wrap; word-break: break-all; background: #0f172a; padding: 10px; border-radius: 5px; margin-top: 5px; color: #38bdf8;">${content}</pre>`;
     historyDiv.prepend(div);
 }
 
