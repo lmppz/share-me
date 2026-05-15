@@ -3,38 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Unique ID Share</title>
+  <title>Direct ID Share</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1 style="color: #38bdf8; text-align: center;">🚀 ID Direct Share</h1>
+    <h1 class="title">🚀 ID Direct Share</h1>
 
-    <div class="card">
-      <div style="display: flex; gap: 10px;">
-        <input type="text" id="usernameInput" placeholder="မိမိ ID အမည်ပေးရန်">
+    <div class="card shadow">
+      <div class="flex-row">
+        <input type="text" id="usernameInput" placeholder="မိမိ ID အမည်ပေးပါ">
         <button id="connectBtn" class="btn-success">Connect</button>
       </div>
-      <div id="status" style="font-size: 0.8rem; color: #94a3b8; margin-top: 5px;">Server ချိတ်ဆက်မှု စောင့်ဆိုင်းနေသည်...</div>
+      <div id="status" class="status-info">Server နှင့် ချိတ်ဆက်ရန် စောင့်ဆိုင်းနေသည်...</div>
     </div>
 
-    <div class="card">
-      <input type="text" id="targetIdInput" placeholder="လက်ခံမည့်သူ၏ ID ရိုက်ထည့်ပါ">
-      <textarea id="textInput" placeholder="စာသားများ ရိုက်ထည့်ပါ..."></textarea>
-      <div style="display: flex; gap: 10px;">
-        <button id="sendText" class="btn-primary" style="flex: 1;">စာပို့မည်</button>
-        <button id="clearHistory" class="btn-danger">Clear</button>
+    <div class="card shadow">
+      <input type="text" id="targetIdInput" placeholder="လက်ခံမည့်သူ၏ Unique ID ကိုရိုက်ပါ">
+      <textarea id="textInput" placeholder="စာသား သို့မဟုတ် Code များ ရိုက်ထည့်ပါ..."></textarea>
+      <div class="flex-row">
+        <button id="sendText" class="btn-primary" style="flex: 2;">စာပို့မည်</button>
+        <button id="clearHistory" class="btn-danger" style="flex: 1;">Clear All</button>
       </div>
     </div>
 
-    <div class="card">
-      <input type="file" id="fileInput">
-      <p style="font-size: 0.75rem; color: #94a3b8;">Maximum Size: 300MB</p>
-      <button id="sendFile" class="btn-primary" style="width: 100%; background: #818cf8;">ဖိုင်ပို့မည်</button>
+    <div class="card shadow">
+      <div class="upload-area">
+        <input type="file" id="fileInput">
+        <p class="limit-text">Maximum: 300MB</p>
+      </div>
+      <button id="sendFile" class="btn-primary" style="width: 100%; margin-top: 10px; background: #818cf8;">ဖိုင်ပို့မည်</button>
     </div>
 
-    <div id="history"></div>
-    <div id="fileList"></div>
+    <div class="content-list">
+      <h3>📜 စာသားမှတ်တမ်း</h3>
+      <div id="history"></div>
+      <h3 style="margin-top:20px;">📁 ဖိုင်မှတ်တမ်း</h3>
+      <div id="fileList"></div>
+    </div>
   </div>
   <script src="app.js"></script>
 </body>
