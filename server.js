@@ -1,14 +1,8 @@
 const clients = new Map();
 
-Deno.serve(async (req) => {
+Deno.serve({ port: 7860 }, async (req) => {
   if (req.headers.get("upgrade") !== "websocket") {
-    const url = new URL(req.url);
-    const path = url.pathname === "/" ? "/index.html" : url.pathname;
-    try {
-      return await fetch(new URL(`.${path}`, import.meta.url));
-    } catch {
-      return new Response("Not Found", { status: 404 });
-    }
+    return new Response("Share Me Server is Running", { status: 200 });
   }
 
   const { socket, response } = Deno.upgradeWebSocket(req);
@@ -22,20 +16,23 @@ Deno.serve(async (req) => {
         clients.set(currentId, socket);
         socket.send(JSON.stringify({ type: "registered", id: data.id }));
       }
-      if (data.type === "check_status") {
-        const target = data.targetId.toLowerCase();
-        socket.send(JSON.stringify({ type: "status_update", targetId: data.targetId, status: clients.has(target) ? "online" : "offline" }));
-      }
+      // Target ဆီသို့ Message ပို့ခြင်း
       if (data.to && clients.has(data.to.toLowerCase())) {
         clients.get(data.to.toLowerCase()).send(e.data);
       }
     } else {
+      // Binary (File) ပို့ခြင်း
       for (const [id, client] of clients) {
-        if (client !== socket && client.readyState === 1) client.send(e.data);
+        if (client !== socket && client.readyState === 1) {
+          client.send(e.data);
+        }
       }
     }
   };
 
-  socket.onclose = () => { if (currentId) clients.delete(currentId); };
+  socket.onclose = () => {
+    if (currentId) clients.delete(currentId);
+  };
+
   return response;
 });
