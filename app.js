@@ -14,12 +14,12 @@ let myId = "";
 function initWS() {
     ws = new WebSocket(wsUrl);
     ws.onopen = () => { 
-        statusDisplay.textContent = "Status: Server နှင့် ချိတ်ဆက်မိပါပြီ။"; 
+        statusDisplay.textContent = "Status: Server နှင့် ချိတ်ဆက်မိပါပြီ။";
         statusDisplay.style.color = "#38bdf8";
         connectBtn.disabled = false;
     };
     ws.onclose = () => {
-        statusDisplay.textContent = "Status: ချိတ်ဆက်မှုပြတ်တောက်နေသည်။ ပြန်ချိတ်နေသည်...";
+        statusDisplay.textContent = "Status: ပြတ်တောက်သွားသည်။ ပြန်ချိတ်နေသည်...";
         statusDisplay.style.color = "#ef4444";
         setTimeout(initWS, 3000); 
     };
@@ -34,22 +34,31 @@ function initWS() {
                 startStatusAutoCheck();
             }
             if (data.type === "status-update") {
-                targetStatus.textContent = data.isOnline ? "Online" : "Offline";
-                targetStatus.className = data.isOnline ? "online" : "offline";
+                // တစ်ဖက်လူ Online ရှိမရှိကို အရောင်ဖြင့် ခွဲခြားပြသခြင်း
+                if (data.isOnline) {
+                    targetStatus.textContent = "Online";
+                    targetStatus.className = "online";
+                } else {
+                    targetStatus.textContent = "Offline";
+                    targetStatus.className = "offline";
+                }
             }
             if (data.type === "text" && data.from !== myId) {
-                // လက်ခံရရှိတဲ့စာကို history ထဲထည့်မယ်
                 addHistory(`From ${data.from}:`, data.content, data.time);
             }
         }
     };
 }
 
+// တစ်ဖက်လူကို စစ်ဆေးတဲ့နေရာမှာ error မရှိအောင် ၁ စက္ကန့်တစ်ခါ တောင်းဆိုခြင်း
 function startStatusAutoCheck() {
     setInterval(() => {
         const target = targetIdInput.value.trim();
         if (target && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "check-status", id: target }));
+        } else if (!target) {
+            targetStatus.textContent = "Offline";
+            targetStatus.className = "offline";
         }
     }, 1000);
 }
@@ -65,26 +74,30 @@ document.getElementById("sendText").onclick = () => {
     const text = textInput.value;
     const target = targetIdInput.value.trim();
     if (text && target) {
-        const now = new Date().toLocaleTimeString();
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         ws.send(JSON.stringify({ type: "text", from: myId, to: target, content: text, time: now }));
         textInput.value = "";
         alert("စာသားပေးပို့ပြီးပါပြီ။");
     }
 };
 
-// ဒီ function ကို အဓိက ပြင်ဆင်ထားပါတယ်
 function addHistory(title, content, time) {
     const div = document.createElement("div");
     div.className = "history-item";
     
-    // Header (Title + Time)
+    // Header
     const header = document.createElement("div");
-    header.style.marginBottom = "5px";
-    header.innerHTML = `<strong>${title}</strong> ${time ? `<span class="msg-time">🕒 ${time}</span>` : ""}`;
+    header.className = "history-header";
+    header.innerHTML = `<strong>${title}</strong>`;
     
-    // Content (Programming Code တွေ Design မပြောင်းအောင် textContent သုံးခြင်း)
+    // Content (Code design မပြောင်းစေရန် textContent သုံးသည်)
     const pre = document.createElement("pre");
-    pre.textContent = content; // <--- ဒါက HTML တွေကို design မပြောင်းအောင် လုပ်ပေးတာပါ
+    pre.textContent = content;
+    
+    // Time (အောက်ခြေသို့ ပို့ထားသည်)
+    const timeDiv = document.createElement("div");
+    timeDiv.className = "msg-time";
+    timeDiv.textContent = `🕒 ${time || ""}`;
     
     const copyBtn = document.createElement("button");
     copyBtn.className = "copy-btn";
@@ -98,10 +111,11 @@ function addHistory(title, content, time) {
     div.appendChild(copyBtn);
     div.appendChild(header);
     div.appendChild(pre);
+    div.appendChild(timeDiv);
     historyDiv.prepend(div);
 }
 
 document.getElementById("clearInput").onclick = () => { textInput.value = ""; };
-document.getElementById("clearHistory").onclick = () => { historyDiv.innerHTML = ""; };
+document.getElementById("clearHistory").onclick = () => { if(confirm("History အားလုံး ဖျက်မလား?")) historyDiv.innerHTML = ""; };
 
 initWS();
