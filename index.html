@@ -35,18 +35,23 @@
     <section id="file-section" class="card">
       <div class="file-upload-wrapper">
         <input type="file" id="fileInput">
-        <p class="file-info">Max: 300MB (Binary Mode)</p>
+        <p class="file-info">Max: 150MB (Binary Mode)</p>
       </div>
       <button id="sendFile" class="btn-primary" style="width: 100%; margin-top: 10px; background: var(--accent);">ဖိုင်ပို့မည်</button>
     </section>
 
     <div class="lists-container">
-      <h3>📜 ရရှိထားသည့် စာသားများ</h3>
-      <div id="history"></div>
-      <h3 style="margin-top:25px;">📁 ရရှိထားသည့် ဖိုင်များ</h3>
-      <div id="fileList"></div>
+      <div class="list-box">
+        <h3>💬 Message History</h3>
+        <div id="history"></div>
+      </div>
+      <div class="list-box">
+        <h3>📁 Received Files</h3>
+        <div id="fileList"></div>
+      </div>
     </div>
   </div>
+
   <script src="app.js"></script>
 </body>
 </html>
