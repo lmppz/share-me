@@ -43,7 +43,9 @@ function initWS() {
         } else {
             const blob = new Blob([e.data]);
             const url = URL.createObjectURL(blob);
-            addFileLink(window.incomingFile.fileName, url, window.incomingFile.from);
+            if (window.incomingFile) {
+                addFileLink(window.incomingFile.fileName, url, window.incomingFile.from);
+            }
         }
     };
 }
@@ -79,7 +81,7 @@ document.getElementById("sendFile").onclick = () => {
     if (!myId) return alert("အရင်ဆုံး Connect လုပ်ပါ။");
     
     if (file && target) {
-        if (file.size > 300 * 1024 * 1024) return alert("Max 300MB သာ ခွင့်ပြုပါသည်။");
+        if (file.size > 100 * 1024 * 1024) return alert("Cloudflare Worker free tier အတွက် ဖိုင်ဆိုဒ်ကို လျှော့ချပေးပါ။");
 
         ws.send(JSON.stringify({
             type: "file_meta",
