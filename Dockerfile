@@ -1,5 +1,7 @@
-FROM denoland/deno:alpine
-EXPOSE 7860
+FROM node:20-alpine
 WORKDIR /app
+COPY package*.json ./
+RUN npm install
 COPY . .
-CMD ["run", "--allow-net", "server.js"]
+EXPOSE 7860
+CMD ["node", "server.js"]
