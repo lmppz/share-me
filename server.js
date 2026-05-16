@@ -2,7 +2,7 @@ const clients = new Map();
 
 export default {
   async fetch(request, env, ctx) {
-    // WebSocket ချိတ်ဆက်မှု တောင်းဆိုချက်ကို စစ်ဆေးခြင်း
+    // WebSocket Upgrade Request ကို ဖမ်းယူခြင်း
     if (request.headers.get("upgrade") === "websocket") {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
@@ -13,6 +13,12 @@ export default {
       server.addEventListener("message", (e) => {
         if (typeof e.data === "string") {
           const data = JSON.parse(e.data);
+
+          // DNS / Network တည်ငြိမ်စေရန် Heartbeat (Ping) ကို တုံ့ပြန်ခြင်း
+          if (data.type === "ping") {
+            server.send(JSON.stringify({ type: "pong" }));
+            return;
+          }
 
           if (data.type === "register") {
             currentId = data.id.toLowerCase();
@@ -29,9 +35,10 @@ export default {
             }));
           }
 
-          if (data.type === "text" || data.type === "file_meta") {
+          if (data.type === "text" || data.type === "file_chunk_meta") {
             const target = data.to.toLowerCase();
-            if (data.type === "file_meta") {
+            // ပို့မည့်သူ၏ Target ID ကို ဆာဗာတွင် လော့ခ်ချမှတ်သားခြင်း
+            if (data.type === "file_chunk_meta") {
               server.currentTargetId = target;
             }
             if (clients.has(target)) {
@@ -39,7 +46,7 @@ export default {
             }
           }
         } else {
-          // Binary File ဒေတာများကို သတ်မှတ်ထားသည့် Target ID ဆီသို့သာ တိုက်ရိုက်ပို့ခြင်း
+          // ခွဲပို့လိုက်သော ဖိုင်အစိတ်အပိုင်း (Binary Chunk) ကို သတ်မှတ်ထားသည့် Target ID ဆီသို့သာ တိုက်ရိုက်ပို့ခြင်း
           if (server.currentTargetId && clients.has(server.currentTargetId)) {
             const targetSocket = clients.get(server.currentTargetId);
             if (targetSocket.readyState === 1) {
@@ -58,7 +65,7 @@ export default {
       return new Response(null, { status: 101, webSocket: client });
     }
 
-    // အခြား Request များကို Static Assets (HTML, CSS, JS) ဖိုင်များအဖြစ် Cloudflare မှ ပြသပေးခြင်း
+    // Static assets (HTML, CSS, JS) များကို ပြသပေးခြင်း
     return env.ASSETS.fetch(request);
   }
 };
